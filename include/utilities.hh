@@ -1,0 +1,20 @@
+/*
+ * utilities.hh
+ *
+ *  Created on: May 17, 2023
+ *      Author: nbarros
+ */
+
+#ifndef UTILITIES_HH_
+#define UTILITIES_HH_
+
+#include <string>
+#include <vector>
+
+namespace util {
+
+void tokenize_string(std::string &str, std::vector<std::string> &tokens, std::string sep = ";");
+
+}
+
+#endif /* UTILITIES_HH_ */

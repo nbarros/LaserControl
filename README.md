@@ -23,4 +23,8 @@ At this point you should have a library called `libLaserControl.a` that you can 
 [ ] Add python bindings
 [ ] Add client that will permit a remote GUI to connect and act
 [ ] Integrate into CIB quasar server
+
+## Sync on gitlba
+
+https://dev.to/brunorobert/github-and-gitlab-sync-44mn
  

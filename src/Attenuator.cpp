@@ -168,7 +168,20 @@ void Attenuator::get_resolution(uint32_t &res)
 
 }
 
-const std::string Attenuator::get_status()
+const std::string Attenuator::get_status_raw()
+{
+  std::ostringstream msg;
+  msg << m_com_pre << "p"<< m_com_post;
+  write_cmd(msg.str());
+
+  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
+#ifdef DEBUG
+  std::cout << "Attenuator::get_status : Resp ["<< resp << "]" << std::endl;
+#endif
+  return resp;
+}
+
+void Attenuator::refresh_status()
 {
   std::ostringstream msg;
   msg << m_com_pre << "pc"<< m_com_post;
@@ -178,8 +191,53 @@ const std::string Attenuator::get_status()
 #ifdef DEBUG
   std::cout << "Attenuator::get_status : Resp ["<< resp << "]" << std::endl;
 #endif
-  return resp;
+
+  // the first 2 bytes are the echo of the command that was sent
+  // so, lets just get rid of them
+  resp = resp.substr(2);
+  // now let's tokenize the remaining string
+  std::vector<std::string> tokens;
+  util::tokenize_string(resp, tokens);
+
+  // we should have 24 tokens
+  // actually, there is a chance that we have 25, but the last is empty
+
+  int command_mode = std::stol(tokens.at(0));
+  enum MotorState s = static_cast<enum MotorState>(std::stol(tokens.at(1)));
+  uint8_t acc_val = std::stol(tokens.at(2)) & 0xFF;
+  uint8_t dec_val = std::stol(tokens.at(3)) & 0xFF;
+  uint16_t speed_val = std::stol(tokens.at(4));
+  uint8_t mov_current_val = std::stol(tokens.at(5)) & 0xFF;
+  uint8_t idle_current_val = std::stol(tokens.at(6)) & 0xFF;
+  uint8_t idle_current_val = std::stol(tokens.at(6)) & 0xFF;
+  // 7 is for step-dir mode
+  enum Resolution res =  static_cast<enum Resolution>(std::stol(tokens.at(8)));
+  int motor_enabled = std::stol(tokens.at(9));
+  // 11 : reserved
+  // reset counter when passing zero position
+  int reset_counter_on_zero = std::stol(tokens.at(11));
+  // report when position was zeroed (zp)
+  int report_on_zero = std::stol(tokens.at(12));
+  // 13 : reserved
+  // 14 : reserved
+  // 15 : reserved
+  // 16 : step-dir mode
+  // motor direction setting in step-dir mode (1 ccw, 0 cw)
+  //int dir_step_dir = std::stol(tokens.at(16));
+  // 17 : step-dir mode
+  // enabled in step-dir mode (1 enabled, 0 disabled)
+  //int enabled_step_dir = std::stol(tokens.at(17));
+  // 18 reserved
+  // 19 : step-dir mode
+  // 20 : step-dir mode
+  // 21 : reserved
+  // 22 : reserved
+  // 23 : reserved
+
+
+
 }
+
 
 void Attenuator::set_transmission(const float trans)
 {

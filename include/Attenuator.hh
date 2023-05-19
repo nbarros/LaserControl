@@ -13,11 +13,60 @@
 
 namespace device
 {
-
+/**
+ * Watt-Pilot pp. 23 for refence
+ * Available commands (pp. 31)
+ * -------------------------
+ *
+ * ++ Important note: the controller always echoes back
+ * the commands that are sent. So, parsing requires the command do be
+ * stripped first
+ *
+ *
+ * ent 0/1/off (enable motor : only in step-dir mode) <-- not implemented
+ * dir [cc/ccw/off] : only in step-dir mode <-- not implemented
+ * m x  : move x steps
+ * g x  : go to absolute coordinate
+ * i x  : set counter to value
+ * h    : reset counter to zero
+ * st   : stop smoothly. counter accuracy is maintained
+ * b    : stop immediately. counter accuracy can degrade
+ * zp   : go to hardware zero position and reset counter
+ * r [1/2/3/4/6/8] : set resolution. Doc recommends half stepping
+ * ws x : set motor current when it is idle (heat control)
+ *        x in [0,255] I = 0.00835 * x (A)
+ * wm x : set motor current when moving
+ *        x in [0,255] I = 0.00835 * x (A)
+ * wt x : set motor current in step-dir mode <-- not implemented
+ * a x  : set motor acceleration
+ *        x in [0,255]
+ *        0 - no acceleration
+ *        ++ setting acceleration helps to increase position repeatability (?)
+ * d x  : set motor deceleration (same logic as acceleration)
+ * s x  : set maximal motor speed
+ *        x in [0, 65000]
+ * p    : shows controller settings (direct terminal usage)
+ * pt   : controller settings in step-dir mote <-- not implemented
+ * pc   : controller settings in command mode
+ *        returns string in form (terminated with '\n\r'
+ *
+ *
+ */
 class Attenuator : public Device
 {
 public:
   enum Status {Success=0x0,Fail=0x1,NotReady=0x2};
+
+  /**
+   * Serial connection parameters for the attenuator
+   * baud 38400
+   * 8 data bits
+   * 1 stop bit
+   * no parity
+   *
+   * @param port
+   * @param baud_rate
+   */
   Attenuator (const char* port = "/dev/ttyUSB0", const uint32_t baud_rate = 38400 );
   virtual ~Attenuator ();
 

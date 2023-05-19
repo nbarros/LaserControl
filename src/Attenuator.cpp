@@ -20,7 +20,7 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
   m_offset(0),
   m_is_moving(false),
   m_speed(59000), // whatever was in the python code
-  m_resolution(1), // half-step mode
+  m_resolution(2), // half-step mode
   m_trans(1.0)
   {
   // open the serial port with a 1s timeout by default
@@ -87,7 +87,7 @@ void Attenuator::get_position(int32_t &position, char &status, bool wait)
       util::tokenize_string(resp,tokens);
       position = std::stol(tokens.at(1));
       status = tokens.at(0).at(1);
-      std::this_thread::sleep_for (std::chrono::milliseconds(500));
+      std::this_thread::sleep_for (std::chrono::milliseconds(m_timeout_ms));
 
     }
   }
@@ -102,7 +102,6 @@ void Attenuator::get_position(int32_t &position, char &status, bool wait)
   }
 
 }
-
 
 void Attenuator::move(const int32_t steps)
 {
@@ -128,7 +127,10 @@ void Attenuator::set_speed(const uint32_t speed)
   msg << m_com_pre << "s "  << speed << m_com_post;
   write_cmd(msg.str());
 }
-
+/**
+ *
+ * @param res
+ */
 void Attenuator::set_resolution(const uint32_t res)
 {
   uint32_t r = res;
@@ -169,7 +171,7 @@ void Attenuator::get_resolution(uint32_t &res)
 const std::string Attenuator::get_status()
 {
   std::ostringstream msg;
-  msg << m_com_pre << "p"<< m_com_post;
+  msg << m_com_pre << "pc"<< m_com_post;
   write_cmd(msg.str());
 
   std::string resp = m_serial.readline(0xFFFF, std::string("\r"));

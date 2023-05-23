@@ -17,6 +17,8 @@ namespace device
   class Device
   {
   public:
+    enum RetStatus {Success=0, Failed=0x1};
+
     Device (const char* port, const uint32_t baud_rate);
     virtual ~Device ();
 
@@ -45,6 +47,7 @@ namespace device
 
 
   private:
+
     Device (const Device &other) = delete;
     Device (Device &&other) = delete;
     Device& operator= (const Device &other) = delete;

@@ -6,9 +6,13 @@
  */
 
 #include <Device.hh>
+#include <thread>
+#include <chrono>
+
 #ifdef DEBUG
 #include <iostream>
 #endif
+
 namespace device
 {
 
@@ -48,6 +52,8 @@ namespace device
   #ifdef DEBUG
     std::cout << "Device::write_cmd : Wrote "<< written_bytes << " bytes" << std::endl;
   #endif
+    // -- delay of 50 ms between commands is required
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
 
   void Device::read_cmd(std::string &answer)

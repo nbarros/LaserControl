@@ -55,11 +55,14 @@ namespace device
 class Attenuator : public Device
 {
 public:
+
+  enum OpMode {StepDir=0,Command=1};
+
   enum MovementStatus {Success=0x0,Fail=0x1,NotReady=0x2};
 
   enum Resolution {Full=0x1,Half=0x2,Quarter=4,Eighth=8,Sixteeth=6};
 
-  enum MotorState {Stopped=0,Accelerating=1,Decelerating=2,Running=3};
+  enum MotorState {Stopped=0,Accelerating=1,Decelerating=2,Running=3, Unknown=0x4};
 
   /**
    * Serial connection parameters for the attenuator
@@ -74,7 +77,6 @@ public:
   Attenuator (const char* port = "/dev/ttyUSB0", const uint32_t baud_rate = 38400 );
   virtual ~Attenuator ();
 
-  void get_position(int32_t &position, char &status, bool wait= true);
   /**
    *  Move motor by x steps.
    *  If wait is set to true, wait for the motor to finish movement before
@@ -186,7 +188,7 @@ public:
    *
    * @param speed the maximum speed. Must be in range [0,65000]
    */
-  void set_speed(const uint32_t speed);
+  void set_max_speed(const uint32_t speed);
 
   /**
    * @fn const std::string get_status_raw()
@@ -208,13 +210,17 @@ public:
   void refresh_status();
 
   /**
-     * @fn void refresh_position()
-     *
-     * Refreshes the current position and movement status.
-     * This method is similar to the previous but is faster,
-     * since it only requires 2 registers to be queried
+   * @fn get_position(int32_t &position, char &status, bool wait= true)
+   *
+   * Returns the current position (and well as the movement status). If wait is true, the
+   * function only returns when the status is '0'/stopped
+   * @param position
+   * @param status
+   * @param wait
    */
-  void refresh_position();
+  void get_position(int32_t &position, uint32_t &status, bool wait= false);
+  void get_position(int32_t &position, enum MotorState &status, bool wait = false);
+
 
   /**
      * @fn void set_transmission(const float)
@@ -233,6 +239,20 @@ public:
     * Save settings to the device registers. This only affects the counter manipulations
     */
    void save_settings();
+   /**
+    *
+    */
+   void reset_controller();
+   /**
+    *
+    * @param sn
+    */
+   void set_serial_number(const std::string sn);
+   /**
+    *
+    * @param sn
+    */
+   void get_serial_number(std::string &sn);
 
    ///
    ///
@@ -241,31 +261,51 @@ public:
    ///
 
 
-   /**
-    * @fn void get_speed(uint32_t&)
-    *
-    * Get max speed
-    *
-    * @param speed
-    */
-   void get_speed(uint32_t &speed);
+
+
+  void get_offset(int32_t &off) {off = m_offset;}
 
   /**
-   *         #Get the Motor's current microstepping resolution.
-        #Returns an INT with the current resolution.
+   * @fn void get_speed(uint32_t&)
    *
-   * @param res
+   * Get max speed
+   *
+   * @param speed
    */
-  void get_resolution(uint32_t &res);
-  /**
-   * Get Attenuator Error status
-   * TODO: write error code parser
-   * @return
-   */
+  void get_max_speed(uint32_t &speed) {speed = m_max_speed;}
 
+  void get_op_mode(enum OpMode &m) {m = m_op_mode;}
+
+  void get_motor_state(MotorState &s) {s = m_motor_state;}
+
+  void get_acceleration(uint8_t &a) {a = m_acceleration;}
+
+  void get_deceleration(uint8_t &d) {d = m_deceleration;}
+
+ /**
+  *         #Get the Motor's current microstepping resolution.
+       #Returns an INT with the current resolution.
+  *
+  * @param res
+  */
+ void get_resolution(uint32_t &res);
+
+ void get_current_idle(uint8_t &c) {c = m_current_idle;}
+ void get_current_move(uint8_t &c) {c = m_current_move;}
+
+ void get_reset_on_zero(bool &r) {r = m_reset_on_zero;}
+ void get_report_on_zero(bool &r) { r = m_report_on_zero;}
 
 private:
 
+  /**
+     * @fn void refresh_position()
+     *
+     * Refreshes the current position and movement status.
+     * This method is similar to the previous but is faster,
+     * since it only requires 2 registers to be queried
+   */
+  void refresh_position();
   /**
    * Defining a function which takes transmission and returns an integer number of steps
    *
@@ -275,13 +315,28 @@ private:
    * @return corresponding position in steps
    */
   const int32_t trans_to_steps(const float trans);
+  const float convert_current(uint8_t val);
 
   /// local variables
-  uint32_t m_offset;
-  bool m_is_moving;
-  uint32_t m_speed;
-  uint32_t m_resolution;
-  float m_trans;
+  int32_t m_offset;
+  uint32_t m_max_speed;
+
+  enum OpMode m_op_mode;
+  enum MotorState m_motor_state;
+  uint8_t m_acceleration;
+  uint8_t m_deceleration;
+
+  enum Resolution m_resolution;
+
+  bool m_motor_enabled;
+  int32_t m_position;
+  uint8_t m_current_idle;
+  uint8_t m_current_move;
+
+  bool m_reset_on_zero;
+  bool m_report_on_zero;
+  std::string m_serial_number;
+
 };
 }
 

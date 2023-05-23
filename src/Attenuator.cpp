@@ -18,10 +18,19 @@ namespace device
 Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
 : Device(port,baud_rate),
   m_offset(0),
-  m_is_moving(false),
-  m_speed(59000), // whatever was in the python code
-  m_resolution(2), // half-step mode
-  m_trans(1.0)
+  m_max_speed(59000), // whatever was in the python code
+  m_op_mode(Command),
+  m_motor_state(Stopped),
+  m_acceleration(0),
+  m_deceleration(0),
+  m_resolution(Half), // half-step mode
+  m_motor_enabled(true),
+  m_position(0),
+  m_current_idle(10),
+  m_current_move(100),
+  m_reset_on_zero(false),
+  m_report_on_zero(false),
+  m_serial_number("unknown")
   {
   // open the serial port with a 1s timeout by default
   m_serial.setBaudrate(m_baud);
@@ -41,6 +50,9 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
     throw serial::PortNotOpenedException("initial communication");
   }
 
+  // make a call to refresh_status and refresh_position to read out current register settings
+  refresh_status();
+  refresh_position();
 }
 
 Attenuator::~Attenuator ()
@@ -52,144 +64,233 @@ Attenuator::~Attenuator ()
 }
 
 
-//TODO: Note that the functionality here is slightly different.
-// unlike the original python, this method does not lock waiting for a valid status
-// that should never be the responsibility of the library, but rather of the user code.
-// for instance, one could want to have separate threads checking on the position
-// and therefore would have no use for having the system locking while waiting for a status of '0'
-void Attenuator::get_position(int32_t &position, char &status, bool wait)
+void Attenuator::move(const int32_t steps, int32_t &position, bool wait)
 {
-  // query status and position of the attenuator motor
-  m_serial.write(std::string("o"));
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
-  // the answer already comes stripped from the carriage return '\r'
-#ifdef DEBUG
-  std::cout << "Attenuator::get_position : Resp ["<< resp << "]" << std::endl;
-#endif
-  // tokenize the response
-  std::vector<std::string> tokens;
-  util::tokenize_string(resp,tokens);
-
-  position = std::stol(tokens.at(1));
-  status = tokens.at(0).at(1);
-
-  // wait for the position status to
-  // be stable
-  if (wait)
+  refresh_position();
+  // check that state is '0'
+  // if not throw an exception
+  if (m_motor_state != Stopped)
   {
-    while(tokens.at(0).at(1) != '0')
-    {
-#ifdef DEBUG
-      std::cout << "Attenuator::get_position : status ["<< tokens.at(0).at(1) << "] pos [" << tokens.at(1) << "]" << std::endl;
-#endif
-      m_serial.write(std::string("o"));
-      resp = m_serial.readline(0xFFFF, std::string("\r"));
-      util::tokenize_string(resp,tokens);
-      position = std::stol(tokens.at(1));
-      status = tokens.at(0).at(1);
-      std::this_thread::sleep_for (std::chrono::milliseconds(m_timeout_ms));
-
-    }
+    std::ostringstream msg;
+    msg << "Can't move motor until it is in a stopped (state=" << m_motor_state << ")";
+    throw std::runtime_error(msg.str());
   }
-  // the status is the second char on the first token
-  if (tokens.at(0).at(1) != '0')
-  {
-    // the motor is still moving
-    // FIXME: Should it simply wait or just answer whatever it has in the register?
-#ifdef DEBUG
-    std::cout << "Attenuator::get_position : status ["<< tokens.at(0).at(1) << "] pos [" << tokens.at(1) << "]" << std::endl;
-#endif
-  }
-
-}
-
-void Attenuator::move(const int32_t steps)
-{
   // there is no need to range check, as int32_t *is* the allowed range
   std::ostringstream msg;
-  msg << m_com_pre << "m "  << steps << m_com_post;
+  msg  << "m "  << steps;
   write_cmd(msg.str());
   // don't do anything here. This is just to set the motor in motion
+  if (wait)
+  {
+    enum MotorState s;
+    get_position(position,s,wait);
+  }
 }
 
-void Attenuator::go(const int32_t position)
+void Attenuator::go(const int32_t target,int32_t &position, bool wait )
 {
+  refresh_position();
+  // check that state is '0'
+  // if not throw an exception
+  if (m_motor_state != Stopped)
+  {
+    std::ostringstream msg;
+    msg << "Can't move motor until it is in a stopped (state=" << m_motor_state << ")";
+    throw std::runtime_error(msg.str());
+  }
   std::ostringstream msg;
-  msg << m_com_pre << "g " << position << m_com_post;
+  msg << "g " << target;
+  write_cmd(msg.str());
+  if (wait)
+  {
+    enum MotorState s;
+    get_position(position,s,wait);
+  }
+}
+
+void Attenuator::set_current_position(const int32_t pos)
+{
+  refresh_position();
+  // check that state is '0'
+  // if not throw an exception
+  if (m_motor_state != Stopped)
+  {
+    std::ostringstream msg;
+    msg << "Can't reconfigure motor until it is in a stopped (state=" << m_motor_state << ")";
+#ifdef DEBUG
+  std::cout << msg.str() << std::endl;
+#endif
+    throw std::runtime_error(msg.str());
+  }
+
+  std::ostringstream msg;
+  msg << "i "<< pos;
+#ifdef DEBUG
+  std::cout << "Attenuator::set_current_position : Current position ["
+      << m_position << "] new position [" << pos << "]" << std::endl;
+#endif
   write_cmd(msg.str());
 
+  // but now we should set the offset to the difference
+  m_offset += (pos - m_position);
 }
 
-void Attenuator::set_speed(const uint32_t speed)
+void Attenuator::set_zero()
 {
-  m_speed = speed;
-  std::ostringstream msg;
-  msg << m_com_pre << "s "  << speed << m_com_post;
-  write_cmd(msg.str());
+  refresh_position();
+  // check that state is '0'
+  // if not throw an exception
+  if (m_motor_state != Stopped)
+  {
+    std::ostringstream msg;
+    msg << "Can't reconfigure motor until it is in a stopped (state=" << m_motor_state << ")";
+#ifdef DEBUG
+  std::cout << msg.str() << std::endl;
+#endif
+    throw std::runtime_error(msg.str());
+  }
+
+  std::string cmd = "h";
+#ifdef DEBUG
+  std::cout << "Attenuator::set_zero : Current position ["
+      << m_position << "] " << std::endl;
+#endif
+  m_offset += m_position;
+  write_cmd(cmd);
+
 }
-/**
- *
- * @param res
- */
-void Attenuator::set_resolution(const uint32_t res)
+
+
+void Attenuator::stop(bool force)
 {
-  uint32_t r = res;
+  std::string cmd = "st";
+  if (force)
+  {
+#ifdef DEBUG
+    std::cout << "Attenuator::stop : WARNING: Issuing a forced stop" << std::endl;
+#endif
+    cmd = "b";
+  }
+  write_cmd(cmd);
+  // this command should always be followed by a get_position
+}
+
+
+void Attenuator::go_home()
+{
+  refresh_position();
+  // check that state is '0'
+  // if not throw an exception
+  if (m_motor_state != Stopped)
+  {
+    std::ostringstream msg;
+    msg << "Can't reconfigure motor until it is in a stopped (state=" << m_motor_state << ")";
+#ifdef DEBUG
+  std::cout << msg.str() << std::endl;
+#endif
+    throw std::runtime_error(msg.str());
+  }
+
+  std::string msg = "zp";
+  write_cmd(msg);
+  m_offset = 0;
+}
+
+void Attenuator::set_resolution(const enum Resolution res)
+{
+  uint32_t r = static_cast<uint32_t>(res);
   if (r == 16)
   {
     r = 6;
   }
-  m_resolution = r;
+  m_resolution = res;
   std::ostringstream msg;
-  msg << m_com_pre << "r "  << r << m_com_post;
+  msg << "r "  << r;
   write_cmd(msg.str());
 }
 
-void Attenuator::get_resolution(uint32_t &res)
+void Attenuator::set_idle_current(const uint8_t val)
 {
-  m_resolution = res;
   std::ostringstream msg;
-  msg << m_com_pre << "p"<< m_com_post;
-  write_cmd(msg.str());
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
+  msg << "ws "<< static_cast<uint16_t>(val & 0xFF);
 #ifdef DEBUG
-  std::cout << "Attenuator::get_resolution : Resp ["<< resp << "]" << std::endl;
+  std::cout << "Attenuator::set_idle_current : Setting idle current to ["
+      << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
 #endif
-  // the answer we want is on the second byte after 'r'
-  size_t pos = resp.find('r');
-  char r = resp.at(pos+2);
-  if (r == '6')
-  {
-    res = 16;
-  } else
-  {
-    // see https://sentry.io/answers/char-to-int-in-c-and-cpp/
-    res =  r - '0';
-  }
+  write_cmd(msg.str());
+  m_current_idle = val;
+}
 
+void Attenuator::set_moving_current(const uint8_t val)
+{
+  std::ostringstream msg;
+  msg << "wm "<< static_cast<uint16_t>(val & 0xFF);
+#ifdef DEBUG
+  std::cout << "Attenuator::set_moving_current : Setting moving current to ["
+      << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
+#endif
+  write_cmd(msg.str());
+  m_current_move = val;
+}
+
+void Attenuator::set_acceleration(const uint8_t val)
+{
+  std::ostringstream msg;
+  msg << "a "<< static_cast<uint16_t>(val & 0xFF);
+#ifdef DEBUG
+  std::cout << "Attenuator::set_acceleration : Setting acceleration to ["
+      << msg.str() << "]" << std::endl;
+#endif
+  write_cmd(msg.str());
+  m_acceleration = val;
+}
+
+void Attenuator::set_deceleration(const uint8_t val)
+{
+  std::ostringstream msg;
+  msg << "d "<< static_cast<uint16_t>(val & 0xFF);
+#ifdef DEBUG
+  std::cout << "Attenuator::set_deceleration : Setting deceleration to ["
+      << msg.str() << "]" << std::endl;
+#endif
+  write_cmd(msg.str());
+  m_deceleration = val;
+}
+
+void Attenuator::set_max_speed(const uint32_t speed)
+{
+  std::ostringstream msg;
+  msg << "s "  << speed ;
+
+#ifdef DEBUG
+  std::cout << "Attenuator::set_max_speed : Setting max speed to ["
+      << msg.str() << "]" << std::endl;
+#endif
+  write_cmd(msg.str());
+  m_max_speed = speed;
 }
 
 const std::string Attenuator::get_status_raw()
 {
-  std::ostringstream msg;
-  msg << m_com_pre << "p"<< m_com_post;
-  write_cmd(msg.str());
-
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
+  std::string msg = "p";
+  write_cmd(msg);
+  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
 #ifdef DEBUG
-  std::cout << "Attenuator::get_status : Resp ["<< resp << "]" << std::endl;
+  std::cout << "Attenuator::get_status_raw : Resp ["<< resp << "]" << std::endl;
 #endif
-  return resp;
+  // drop the echoed 'p'
+  return resp.substr(1);
 }
 
+/// This command returns a string finished with 0x0A followed by 0x0D (\r\n)
 void Attenuator::refresh_status()
 {
-  std::ostringstream msg;
-  msg << m_com_pre << "pc"<< m_com_post;
-  write_cmd(msg.str());
+  std::string msg= "pc";
+  write_cmd(msg);
 
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
+  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
 #ifdef DEBUG
-  std::cout << "Attenuator::get_status : Resp ["<< resp << "]" << std::endl;
+  std::cout << "Attenuator::refresh_status : Resp ["<< resp << "]" << std::endl;
 #endif
 
   // the first 2 bytes are the echo of the command that was sent
@@ -201,23 +302,26 @@ void Attenuator::refresh_status()
 
   // we should have 24 tokens
   // actually, there is a chance that we have 25, but the last is empty
+#ifdef DEBUG
+  std::cout << "Attenuator::refresh_status : Have ["<< tokens.size() << "] tokens" << std::endl;
+#endif
 
-  int command_mode = std::stol(tokens.at(0));
-  enum MotorState s = static_cast<enum MotorState>(std::stol(tokens.at(1)));
-  uint8_t acc_val = std::stol(tokens.at(2)) & 0xFF;
-  uint8_t dec_val = std::stol(tokens.at(3)) & 0xFF;
-  uint16_t speed_val = std::stol(tokens.at(4));
-  uint8_t mov_current_val = std::stol(tokens.at(5)) & 0xFF;
-  uint8_t idle_current_val = std::stol(tokens.at(6)) & 0xFF;
-  uint8_t idle_current_val = std::stol(tokens.at(6)) & 0xFF;
+  m_op_mode = static_cast<enum OpMode>(std::stol(tokens.at(0)));
+  m_motor_state = static_cast<enum MotorState>(std::stol(tokens.at(1)));
+  m_acceleration = std::stoul(tokens.at(2)) & 0xFF;
+  m_deceleration = std::stoul(tokens.at(3)) & 0xFF;
+  m_max_speed = std::stoul(tokens.at(4));
+
+  m_current_move = std::stoul(tokens.at(5)) & 0xFF;
+  m_current_idle = std::stoul(tokens.at(6)) & 0xFF;
   // 7 is for step-dir mode
-  enum Resolution res =  static_cast<enum Resolution>(std::stol(tokens.at(8)));
-  int motor_enabled = std::stol(tokens.at(9));
+  m_resolution =  static_cast<enum Resolution>(std::stoul(tokens.at(8)));
+  m_motor_enabled = std::stol(tokens.at(9));
   // 11 : reserved
   // reset counter when passing zero position
-  int reset_counter_on_zero = std::stol(tokens.at(11));
+  m_reset_on_zero = (std::stol(tokens.at(11))?true:false);
   // report when position was zeroed (zp)
-  int report_on_zero = std::stol(tokens.at(12));
+  m_report_on_zero = (std::stol(tokens.at(12))?true:false);
   // 13 : reserved
   // 14 : reserved
   // 15 : reserved
@@ -234,26 +338,178 @@ void Attenuator::refresh_status()
   // 22 : reserved
   // 23 : reserved
 
+  // all these settings should be added into local registers
 
 
 }
 
 
-void Attenuator::set_transmission(const float trans)
+
+//TODO: Note that the functionality here is slightly different.
+// unlike the original python, this method does not lock waiting for a valid status
+// that should never be the responsibility of the library, but rather of the user code.
+// for instance, one could want to have separate threads checking on the position
+// and therefore would have no use for having the system locking while waiting for a status of '0'
+
+void Attenuator::get_position(int32_t &position, uint32_t &status, bool wait)
+{
+  // query status and position of the attenuator motor
+  m_serial.write(std::string("o"));
+  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
+  // the answer already comes stripped from the carriage return '\r'
+#ifdef DEBUG
+  std::cout << "Attenuator::get_position : Resp ["<< resp << "]" << std::endl;
+#endif
+  // drop the first byte, as it is the echoed command 'o'
+  resp = resp.substr(1);
+  // tokenize the response
+  std::vector<std::string> tokens;
+  util::tokenize_string(resp,tokens);
+
+  position = std::stol(tokens.at(1));
+  // check that the status is indeed just one char long
+  if (tokens.at(0).size() != 1)
+  {
+    std::ostringstream msg;
+    msg << "Expected only 1 char as status. Got " << tokens.at(0).size() << "(" << tokens.at(0) << ")";
+    throw std::runtime_error(msg.str());
+  }
+  status = std::stoul(tokens.at(0));
+
+  // -- if wait is set to true, we need to do the extra length of looping until status is 0
+
+  if (wait)
+  {
+    while(status != 0)
+    {
+#ifdef DEBUG
+      std::cout << "Attenuator::get_position : status ["<< status << "] pos [" << position << "]" << std::endl;
+#endif
+      // call the function again
+      get_position(position,status,false);
+      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+  }
+}
+
+void Attenuator::get_position(int32_t &position, enum MotorState &status, bool wait)
+{
+
+  uint32_t tmp_st;
+  get_position(position,tmp_st,wait);
+  status = static_cast<enum MotorState>(tmp_st);
+}
+
+
+void Attenuator::set_transmission(const float trans, bool wait)
 {
   // first convert transmission range [0.0] to steps
   if ((trans < 0.0) || (trans > 1.00))
   {
-    throw serial::SerialException("set transmission range within [0.0, 1.0]");
+    std::ostringstream msg;
+    msg << "Attenuator::set_transmission : transmission ["<< trans << "] not within range [0.0,1.0]";
+#ifdef DEBUG
+    std::cout << msg.str() << std::endl;
+#endif
+    throw std::range_error(msg.str());
   }
 
   int32_t steps = trans_to_steps(trans);
-  go(steps);
+#ifdef DEBUG
+    std::cout << "Attenuator::set_transmission : Setting target to " << steps << std::endl;
+#endif
+
+    int32_t p;
+    go(steps,p,wait);
+}
+
+
+void Attenuator::save_settings()
+{
+  std::string msg = "ss";
+  write_cmd(msg);
 
 }
 
+void Attenuator::reset_controller()
+{
+  std::string msg = "j";
+  write_cmd(msg);
+}
+
+void Attenuator::set_serial_number(const std::string sn)
+{
+  std::string name(20,' ');
+  if (sn.size() > 20)
+  {
+    // if it is too large, truncate it
+    name = sn.substr(0,20);
+#ifdef DEBUG
+    std::cout << "Attenuator::set_serial_number : Truncating argument to " << name << std::endl;
+#endif
+  }
+  else if (sn.size() < 20)
+  {
+    name = sn;
+    name.insert(0, 20-name.size(),' ');
+  }
+
+#ifdef DEBUG
+    std::cout << "Attenuator::set_serial_number : Setting serial number/name to [" << name << "]" << std::endl;
+#endif
+
+    std::ostringstream cmd;
+    cmd << "sn " << name;
+    write_cmd(cmd.str());
+}
+
+void Attenuator::get_serial_number(std::string &sn)
+{
+  std::string cmd = "n";
+  write_cmd(cmd);
+  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
+#ifdef DEBUG
+  std::cout << "Attenuator::get_serial_number : Resp ["<< resp << "]" << std::endl;
+#endif
+  // get rid of the echo byte
+  sn = resp.substr(1);
+  m_serial_number = sn;
+}
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+///
+///         getters: these just returned the locally cached value. Should be preceded by a refresh_status
+///
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
+
+void Attenuator::get_resolution(uint32_t &res)
+{
+  res = static_cast<uint32_t>(m_resolution);
+  if (res == 6)
+  {
+    res = 16;
+  }
+}
+
+
+
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+///
+///         private methods
+///
+////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+
 const int32_t Attenuator::trans_to_steps(const float trans)
 {
+  //TODO: Re-write this using the stepping configuration
+  // the formula actually changes
+  //FIXME: Cross-check the offset calculation
+
   float steps = -43.333333 * 180/M_PI * std::acos(std::sqrt(trans));
   int32_t res = static_cast<int32_t>(steps)+m_offset+3900; //Same as above, this assumes default microstepping resolution. See Manual for more.
 #ifdef DEBUG
@@ -265,65 +521,15 @@ const int32_t Attenuator::trans_to_steps(const float trans)
 
 }
 
-void Attenuator::go_home()
+
+void Attenuator::refresh_position()
 {
-  std::ostringstream msg;
-  msg << m_com_pre << "zp"<< m_com_post;
-  write_cmd(msg.str());
+  // do not wait
+  get_position(m_position,m_motor_state,false);
 }
 
-void Attenuator::set_current_position(const int32_t pos)
+const float Attenuator::convert_current(uint8_t val)
 {
-  char s;
-  int32_t p;
-  get_position(p,s);
-  if (s != '0')
-  {
-#ifdef DEBUG
-  std::cout << "Attenuator::set_current_position : Motor not in OK state ["
-      << s << "]. Doing nothing." << std::endl;
-#endif
-    return;
-  }
-  std::ostringstream msg;
-  msg << m_com_pre << "i "<< pos << m_com_post;
-#ifdef DEBUG
-  std::cout << "Attenuator::set_current_position : Current position ["
-      << p << "] new position [" << pos << "]" << std::endl;
-#endif
-  write_cmd(msg.str());
-
+  return 0.00835 * val;
 }
-
-void Attenuator::set_zero()
-{
-  char s;
-  int32_t p;
-  get_position(p,s);
-  if (s != '0')
-  {
-#ifdef DEBUG
-  std::cout << "Attenuator::set_zero : Motor not in OK state ["
-      << s << "]. Doing nothing." << std::endl;
-#endif
-    return;
-  }
-  std::ostringstream msg;
-  msg << m_com_pre << "h" << m_com_post;
-#ifdef DEBUG
-  std::cout << "Attenuator::set_zero : Current position ["
-      << p << "] " << std::endl;
-#endif
-  write_cmd(msg.str());
-
-}
-
-void Attenuator::save_settings()
-{
-  std::ostringstream msg;
-  msg << m_com_pre << "ss"<< m_com_post;
-  write_cmd(msg.str());
-
-}
-
 }

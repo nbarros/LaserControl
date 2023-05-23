@@ -45,6 +45,7 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   // 8 bit byte
   // no parity
   // 1 stop bit
+  m_serial.setBaudrate(m_baud);
   m_serial.setBytesize(serial::eightbits);
   m_serial.setParity(serial::parity_none);
   m_serial.setStopbits(serial::stopbits_one);
@@ -52,25 +53,29 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   m_serial.open();
   if (!m_serial.isOpen())
   {
+    std::ostringstream msg;
+    msg << "Failed to open the port ["<< m_comport << ":" << m_baud << "]";
 #ifdef DEBUG
-    std::cerr << "Laser::Laser : Failed to open the port ["<< m_comport << ":" << m_baud << "]" << std::endl;
+    std::cerr << "Laser::Laser : "<< msg.str() << std::endl;
 #endif
-    throw serial::PortNotOpenedException("initial communication");
+    throw serial::PortNotOpenedException(msg.str().c_str());
   } else
   {
 #ifdef DEBUG
     std::cout << "Laser::Laser : Connection established" << std::endl;
 #endif
+
+
     /// we have a connection. Lets initialize some settings
-
     set_prescale(m_prescale);
-
     set_pump_voltage(m_pump_hv);
-
     set_qswitch(m_qswitch);
-
+    set_repetition_rate(m_rate);
+    // actually, we should also query the device for its current settings
+    // unfortunately, there is no such command
+    // so the best is to set everything, and keeping good track of what are
+    // the settings
   }
-
 }
 
 Laser::~Laser ()
@@ -82,14 +87,8 @@ void Laser::shutter(enum Shutter s)
   std::ostringstream cmd;
   cmd << "SH " << static_cast<uint32_t>(s);
   write_cmd(cmd.str());
-//  if (s == Open)
-//  {
-//    m_is_firing = true;
-//  } else
-//  {
-//    m_is_firing = false;
-//  }
 }
+
 
 void Laser::fire(enum Fire s)
 {
@@ -103,8 +102,8 @@ void Laser::fire(enum Fire s)
   {
     m_is_firing = false;
   }
-
 }
+
 
 void Laser::set_prescale(uint32_t pre)
 {
@@ -130,7 +129,7 @@ void Laser::set_prescale(uint32_t pre)
 #endif
   write_cmd(cmd.str());
 
-    m_prescale = pre;
+  m_prescale = pre;
 }
 
 void Laser::set_pump_voltage(float hv)
@@ -147,11 +146,13 @@ void Laser::set_pump_voltage(float hv)
 
   if (hv > 1.3 || hv < 0)
   {
+    std::ostringstream msg;
+    msg << "Argument out of range [" << hv << "] --> [0; 1.3].";
 #ifdef DEBUG
-    std::cout << "Laser::set_pump_voltage : Argument out of range [" << hv << "] --> [0; 1.3]." << std::endl;
+    std::cout << "Laser::set_pump_voltage : " << msg.str() << std::endl;
 #endif
 
-    throw std::range_error("Pump HV must be in the range [0,1.3]");
+    throw std::range_error(msg.str());
   }
 
   std::ostringstream cmd;
@@ -161,10 +162,10 @@ void Laser::set_pump_voltage(float hv)
 #endif
 
   write_cmd(cmd.str());
-
+  m_pump_hv = hv;
 }
 
-void Laser::set_ss_mode(bool force)
+void Laser::single_shot(bool force)
 {
   if (force)
   {
@@ -173,7 +174,7 @@ void Laser::set_ss_mode(bool force)
   } else
   {
     // if prescale is not zero, throw an exception
-
+    ;
   }
 
   std::string cmd = "SS";
@@ -238,6 +239,13 @@ Table 6 below.
    code = resp;
    msg = m_sec_map[code];
 
+}
+
+void Laser::security(Security &code,std::string &msg)
+{
+  std::string tmp_code;
+  security(tmp_code,msg);
+  code = static_cast<Security>(std::stol(tmp_code));
 }
 
 void Laser::set_repetition_rate(float rate)

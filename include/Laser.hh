@@ -29,6 +29,10 @@ namespace device
     Power supply voltage  : VA [X.XX]
     Pulse division        : PD [XXX] 001 Single shot
     Shot counter          : SC
+
+
+    Serial connection settings
+    9600 BAUD, 8 BIT, NO PARITY, 1 STOP BIT (8N1)
    */
 class Laser : public Device
 {
@@ -36,6 +40,8 @@ public:
 
   enum Shutter{Open=0x1,Closed=0x0};
   enum Fire{Start=0x1,Stop=0x0};
+  enum Mode{Commissioning=0,Calibration=1};
+  enum Security{Normal=0,NoSerial=1,BadFlow=2,OverTemp=3,NotUsed=4,LaserHead=5,ExtInterlock=6,ChargePileUp=7,SimmerFail=8,FlowSwitch=9};
 
   Laser (const char* port = "/dev/ttyUSB0", const uint32_t baud_rate = 9600);
   virtual ~Laser ();
@@ -44,13 +50,15 @@ public:
    * Open or close the shutter with a binary command
    * @param s
    */
-  void shutter(enum Shutter s);
+  void shutter(Shutter s);
   void shutter_open() { shutter(Shutter::Open); }
   void shutter_close() { shutter(Shutter::Closed); }
 
   /**
    * Start/Stop firing
    */
+  //FIXME: This command should only be called when in Commissioning mode
+  // in calibration mode, the firing control comes from the CIB
   void fire(enum Fire s);
   void fire_start() {fire(Fire::Start);}
   void fire_stop() {fire(Fire::Stop);}
@@ -64,7 +72,8 @@ public:
    *
    * TODO: What does "extracted" mean? Allowed to leave the laser box?
    */
-  void set_prescale(uint32_t pre);
+  void set_prescale(const uint32_t pre);
+  void set_pulse_division(const uint32_t pd) {set_prescale(pd);}
 
   /**
    * Set the pump voltage for the laser lamp.
@@ -77,7 +86,7 @@ public:
    *
    * @param force forces the prescale to 000
    */
-  void set_ss_mode(bool force = false);
+  void single_shot(bool force = false);
 
   /**
    * Read the Shot Count
@@ -92,7 +101,7 @@ public:
    * @param msgs
    */
   void security(std::string &code,std::string &msg);
-
+  void security(Security &code,std::string &msg);
   /**
    * Set the repetition rate of the laser
    * # -- Should not be changed..
@@ -123,8 +132,6 @@ private:
 
   /// Other private methods that may be useful
   ///
-  //void write_cmd(const std::string cmd);
-
 
 
 

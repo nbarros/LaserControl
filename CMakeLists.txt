@@ -60,7 +60,7 @@ add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
 
 # Now add a server target
-add_executable(control_server ${PROJECT_SOURCE_DIR}/src/control_server.cpp)
+add_executable(control_server EXCLUDE_FROM_ALL ${PROJECT_SOURCE_DIR}/src/control_server.cpp)
 ## add the include directory to our compile directives
 target_include_directories(control_server PUBLIC ${ZeroMQ_INCLUDE_DIR})
 ## at the 0mq library to our link directive

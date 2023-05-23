@@ -40,7 +40,21 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 
 # -- this would be to install separate applications
 set(LIB_SRC_FILES ${PROJECT_SOURCE_DIR}/src/Attenuator.cpp ${PROJECT_SOURCE_DIR}/src/Device.cpp ${PROJECT_SOURCE_DIR}/src/Laser.cpp ${PROJECT_SOURCE_DIR}/src/PowerMeter.cpp ${PROJECT_SOURCE_DIR}/src/serial.cc ${PROJECT_SOURCE_DIR}/src/utilities.cpp)
-#add_executable(test2 ${SOURCE_FILES})
+if(APPLE)
+    # If OSX
+    list(APPEND LIB_SRC_FILES src/impl/unix.cc)
+    list(APPEND LIB_SRC_FILES src/impl/list_ports/list_ports_osx.cc)
+elseif(UNIX)
+    # If unix
+    list(APPEND LIB_SRC_FILES src/impl/unix.cc)
+    list(APPEND LIB_SRC_FILES src/impl/list_ports/list_ports_linux.cc)
+else()
+    # If windows
+    list(APPEND LIB_SRC_FILES src/impl/win.cc)
+    list(APPEND LIB_SRC_FILES src/impl/list_ports/list_ports_win.cc)
+endif()
+
+
 
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
@@ -51,4 +65,8 @@ add_executable(control_server ${PROJECT_SOURCE_DIR}/src/control_server.cpp)
 target_include_directories(control_server PUBLIC ${ZeroMQ_INCLUDE_DIR})
 ## at the 0mq library to our link directive
 target_link_libraries(control_server PUBLIC ${ZeroMQ_LIBRARY})
+
+# Now add a server target
+add_executable(probe_serial_ports ${PROJECT_SOURCE_DIR}/src/probe_ports.cc)
+target_link_libraries(probe_serial_ports PUBLIC LaserControl)
 

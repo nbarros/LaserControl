@@ -23,6 +23,7 @@ namespace device
         m_com_post("\r"),
         m_timeout_ms(1000)
   {
+
     // initialize the serial connection
     m_serial.setPort(m_comport);
     m_serial.setBaudrate(m_baud);
@@ -31,8 +32,6 @@ namespace device
     serial::Timeout t = serial::Timeout::simpleTimeout(m_timeout_ms);
     m_serial.setTimeout(t);
     m_serial.setStopbits(serial::stopbits_one);
-
-
   }
 
   Device::~Device ()

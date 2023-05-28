@@ -43,7 +43,7 @@ public:
   enum Mode{Commissioning=0,Calibration=1};
   enum Security{Normal=0,NoSerial=1,BadFlow=2,OverTemp=3,NotUsed=4,LaserHead=5,ExtInterlock=6,ChargePileUp=7,SimmerFail=8,FlowSwitch=9};
 
-  Laser (const char* port = "/dev/ttyUSB0", const uint32_t baud_rate = 9600);
+  Laser (const char* port = "auto", const uint32_t baud_rate = 9600);
   virtual ~Laser ();
 
   /**

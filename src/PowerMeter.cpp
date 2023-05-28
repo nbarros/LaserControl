@@ -67,7 +67,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
     // The aim is to turn off averaging on bootup... but that doesn't seem to work?
     //NFB: This is not what the programmers guide says.
 
-    set_average_query(aNone,m_ave_query_state);
+    average_query(aNone,m_ave_query_state);
 
     // Set the wavelength to 266nm
     set_wavelength(m_wavelength);
@@ -142,7 +142,7 @@ PowerMeter::~PowerMeter ()
 //  }
 //}
 
-void PowerMeter::get_range(int16_t &range)
+void PowerMeter::get_range_fast(int16_t &range)
 {
   // m_range is always in sync with the instrument
   range = m_range;
@@ -203,10 +203,18 @@ void PowerMeter::get_average_flag(bool &flag)
   flag = (std::stol(answer)==0)?false:true;
 }
 
-void PowerMeter::set_average_query(const AQSetting q, AQSetting &answer)
+void PowerMeter::average_query(const AQSetting q, AQSetting &answer)
+{
+  uint16_t qq = q;
+  uint16_t aa;
+  average_query(qq,aa);
+  answer = static_cast<AQSetting>(aa);
+}
+
+void PowerMeter::average_query(const uint16_t q, uint16_t &a)
 {
   std::ostringstream cmd;
-  cmd << "AQ " << static_cast<int>(q);
+  cmd << "AQ " << q;
 #ifdef DEBUG
   std::cout << "PowerMeter::set_average_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
@@ -220,8 +228,27 @@ void PowerMeter::set_average_query(const AQSetting q, AQSetting &answer)
 //  char s= resp.at(0);
 //  success = (s == '*')?true:false;
   // the third byte is the setting that is still in place
-  answer = static_cast<AQSetting>(std::stol(resp.substr(2,1)));
+  a = std::stoul(resp.substr(2,1)) & 0xFFFF;
 
+  // if the map has no entries, fill it
+  if (m_ave_windows.size() == 0)
+  {
+#ifdef DEBUG
+  std::cout << "PowerMeter::set_average_query : got answer [" << resp << "]" << std::endl;
+#endif
+    // the first option is going to be AUTO.search for it
+    size_t p = resp.find("NONE");
+    std::string range = resp.substr(p);
+    std::vector<std::string> tokens;
+    util::tokenize_string(range, tokens, " ");
+
+    uint16_t k = 1;
+    for (std::string t : tokens)
+    {
+      m_ave_windows.insert({k,t});
+      k++;
+    }
+  }
 }
 
 void PowerMeter::get_all_ranges(int16_t &current_setting)
@@ -255,7 +282,7 @@ void PowerMeter::get_all_ranges(int16_t &current_setting)
   tokens.erase(tokens.begin());
 
   // now clear the map
-  m_power_ranges.clear();
+  m_ranges.clear();
   // the first token should be "AUTO"
   int counter = -1;
   for (std::string entry: tokens)
@@ -263,7 +290,7 @@ void PowerMeter::get_all_ranges(int16_t &current_setting)
 #ifdef DEBUG
     std::cout << "PowerMeter::get_all_ranges : Adding entry [" << counter << " : " << entry << "]" << std::endl;
 #endif
-    m_power_ranges.insert({counter,entry});
+    m_ranges.insert({counter,entry});
     counter ++;
   }
 }
@@ -273,6 +300,8 @@ void PowerMeter::get_all_ranges(int16_t &current_setting)
 // TODO: Get information from LANL
 void PowerMeter::get_all_wavelengths(int16_t &current_setting)
 {
+  throw std::runtime_error("Not implemented");
+  /**
   std::ostringstream cmd;
   cmd << "AW";
 #ifdef DEBUG
@@ -297,8 +326,21 @@ void PowerMeter::get_all_wavelengths(int16_t &current_setting)
 
   //FIXME: Finish implementing
   current_setting = -1;
-
+*/
 }
+
+void PowerMeter::get_all_wavelengths(std::string &answer)
+{
+  std::string cmd = "AW";
+  std::string rr;
+#ifdef DEBUG
+  std::cout << "PowerMeter::get_all_wavelengths : Sending query [" << cmd << "]" << std::endl;
+#endif
+  send_cmd(cmd,rr);
+  // just remove the first byte and return the rest
+  answer = rr.substr(1);
+}
+
 
 void PowerMeter::bc20_sensor_mode(BC20 query,BC20 &answer)
 {
@@ -592,12 +634,51 @@ void PowerMeter::max_freq(uint32_t &value)
   value = std::stoul(rr.substr(1));
 }
 
-void PowerMeter::pulse_length(const uint32_t value, uint32_t &answer)
+void PowerMeter::measurement_mode(const MeasurementMode q, MeasurementMode &a)
+{
+
+  uint16_t query = static_cast<uint16_t>(q);
+  uint16_t answer;
+  measurement_mode(query,answer);
+  a = static_cast<MeasurementMode>(answer);
+}
+
+void PowerMeter::measurement_mode(const uint16_t q, uint16_t &a)
 {
   std::ostringstream msg;
   std::string resp;
 
-  msg << "MM " << value;
+  msg << "MM " << q;
+  send_cmd(msg.str(),resp);
+  // this command is silly. The answer varies wildly depending on the setting
+  if (q == 0)
+  {
+    // we were querying current setting. All we care about is
+    // the second byte
+    a = std::stoi(resp.substr(1));
+  }
+  else {
+    // we are trying to set a new setting
+    // the answer is different depending whether it was successful or not
+    if (resp.at(0) == '*')
+    {
+      // success.
+      a = q;
+    } else
+    {
+      // failed
+      // then query what is the current setting
+      measurement_mode(0,a);
+    }
+  }
+}
+
+void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
+{
+  std::ostringstream msg;
+  std::string resp;
+
+  msg << "PL " << value;
   send_cmd(msg.str(),resp);
   // this command is silly. The answer varies wildly depending on the setting
   if (value == 0)
@@ -605,6 +686,29 @@ void PowerMeter::pulse_length(const uint32_t value, uint32_t &answer)
     // we were querying current setting. All we care about is
     // the second byte
     answer = std::stoul(resp.substr(1,1));
+
+    // if the map is not filled, then fill it
+    if (m_pulse_lengths.size() == 0)
+    {
+      resp= resp.substr(2);
+#ifdef DEBUG
+  std::cout << "PowerMeter::pulse_length : string to tokenize : [" << resp << "]" << std::endl;
+#endif
+
+      // tokenize it and get rid of first entry
+      std::vector<std::string> tokens;
+      util::tokenize_string(resp, tokens, " ");
+      // now insert these into the map
+      uint16_t k = 1;
+      for (std::string entry: tokens)
+      {
+#ifdef DEBUG
+        std::cout << "PowerMeter::get_all_ranges : Adding entry [" << k << " : " << entry << "]" << std::endl;
+#endif
+        m_pulse_lengths.insert({k,entry});
+        k++;
+      }
+    }
   }
   else {
     // we are trying to set a new setting
@@ -616,7 +720,7 @@ void PowerMeter::pulse_length(const uint32_t value, uint32_t &answer)
     } else
     {
       // failed
-      answer = std::stoul(resp.substr(1,1));
+      answer = std::stoul(resp.substr(1,1)) & 0xFFFF;
     }
   }
 }
@@ -625,13 +729,13 @@ void PowerMeter::pulse_length(const uint32_t value, uint32_t &answer)
 void PowerMeter::reset()
 {
   std::string rr;
-  send_cmd("MF",rr);
+  send_cmd("RE",rr);
 }
 
 void PowerMeter::get_range(int32_t &value)
 {
   std::string rr;
-  send_cmd("MF",rr);
+  send_cmd("RN",rr);
   // drop the first byte
   value = std::stoi(rr.substr(1));
 }
@@ -732,9 +836,29 @@ void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)
   util::tokenize_string(rr, tokens, " ");
   answer = std::stoul(tokens.at(0)) & 0xFFFF;
   m_e_threshold = answer;
+
+  // we should also store these values
   // the next two values are the minimum range and max range
   // min = tokens.at(1);
   // max = tokens.at(2);
+}
+
+void PowerMeter::query_user_threshold(uint16_t &current, uint16_t &min, uint16_t &max)
+{
+  std::string cmd = "UT";
+  std::string rr;
+  send_cmd(cmd,rr);
+  // first strip the return byte
+  rr = rr.substr(1);
+  // now tokenize the answer
+  std::vector<std::string> tokens;
+  util::tokenize_string(rr, tokens, " ");
+  current = std::stoul(tokens.at(0)) & 0xFFFF;
+  m_e_threshold = current;
+  min = std::stoul(tokens.at(1)) & 0xFFFF;
+  max = std::stoul(tokens.at(2)) & 0xFFFF;
+
+
 }
 
 void PowerMeter::version(std::string &value)
@@ -781,6 +905,14 @@ void PowerMeter::write_range(const int16_t range, bool &success)
 
 }
 
+
+//void PowerMeter::set_measurement_mode(const uint16_t mode)
+//{
+//  switch(mode)
+//  {
+//    case 0: // passive
+//  }
+//}
 
 ///
 ///

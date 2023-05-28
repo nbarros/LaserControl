@@ -8,6 +8,7 @@
 #include <utilities.hh>
 #include <iostream>
 #include <serial/serial.h>
+#include <sstream>
 
 using std::vector;
 using std::string;
@@ -51,7 +52,6 @@ void enumerate_ports()
 
 std::string find_port(std::string param)
 {
-  cout << "find_port : This method is not implemented yet" << endl;
 
   // loop over all available ports and search if any of the fields matches the string
   // that was passed
@@ -87,7 +87,7 @@ std::string find_port(std::string param)
 #ifdef DEBUG
     cout << "find_port : Couldn't find any devices matching description" << endl;
 #endif
-    throw std::runtime_error("Couldn't find any devices matching description");
+    return "";//throw std::runtime_error("Couldn't find any devices matching description");
   }
   else if (devices_match.size() == 1)
   {
@@ -114,6 +114,34 @@ std::string find_port(std::string param)
   }
   return "";
 }
+
+template <typename T>
+std::string serial_map(const std::map<T,std::string> m)
+{
+  std::ostringstream os;
+  os << "{";
+    for (auto i : m)
+    {
+      os << "\"" << i.first << "\":\"" << i.second << "\",";
+    }
+    os.seekp(-1,os.cur);
+    os << "}";
+  std::string res = os.str();
+  return res;
+}
+
+std::string serialize_map(const std::map<uint16_t,std::string> m)
+{
+  return serial_map<uint16_t>(m);
+}
+
+std::string serialize_map(const std::map<int16_t,std::string> m)
+{
+  return serial_map<int16_t>(m);
+}
+
+
+
 
 }
 

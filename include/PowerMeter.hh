@@ -28,6 +28,7 @@ namespace device {
 class PowerMeter: public Device
 {
 public:
+  // average window
   enum AQSetting {aQuery=0,aNone=1, aHalfSec=2,aOneSec=3,aThreeSecs=4,aTenSecs=5,aThirtySecs=6};
   // this is not true. Need the real power meter to know what are the values
   //enum PowerRange {Auto=-1,r30mW=0,r3mW=1,r300uW=2,r30uW=3,r3uW=4,r300nW=5,r30nW=6};
@@ -57,7 +58,7 @@ public:
    * @param range
    */
   void set_range(const int16_t range, std::string &answer);
-  void get_range(int16_t &range);
+  void get_range_fast(int16_t &range);
 
   /**
    * We're *trying* to set the Energy Threshold to the minimum value.
@@ -79,14 +80,14 @@ public:
   void get_average_flag(bool &flag);
 
   // AQ
-  void set_average_query(const AQSetting q, AQSetting &answer);
-  void set_average_query(const AQSetting q);
-
+  void average_query(const AQSetting q, AQSetting &answer);
+  void average_query(const uint16_t q, uint16_t &a);
   // AR
   // queries the available modes, fills the map and returns the current setting in the variable
   void get_all_ranges(int16_t &current_setting);
   // AW
   void get_all_wavelengths(int16_t &current_setting);
+  void get_all_wavelengths(std::string &answer);
   // BQ
   // BC20 Query
   void bc20_sensor_mode(BC20 query,BC20 &answer);
@@ -115,6 +116,7 @@ public:
 
   // ER
   // Energy Threshold : Query and set the threshold setting
+  // Note: do not use
   void energy_threshold(const uint32_t et, uint32_t &answer);
 
   //FE
@@ -179,12 +181,12 @@ public:
   // MM
   // set the instrument to the specified measurement mode
   // option 0 is to query
-  // there seems to be some issue with this command for now (still in development)
-  void measurement_mode(const MeasurementMode q, MeasurementMode &a) {throw std::runtime_error("not implemented");}
+  void measurement_mode(const MeasurementMode q, MeasurementMode &a);
+  void measurement_mode(const uint16_t q, uint16_t &a);
 
   // PL
   // set the pulse length, this method should be called once to fill in the corresponding map
-  void pulse_length(const uint32_t value, uint32_t &answer);
+  void pulse_length(const uint16_t value, uint16_t &answer);
 
   // RE
   // reset the instrument
@@ -250,6 +252,7 @@ public:
   // valid values: 0..2500 (units of 0.01%)
   // TODO: This is another of the main methods
   void user_threshold(const uint16_t value, uint16_t &answer);
+  void query_user_threshold(uint16_t &current, uint16_t &min, uint16_t &max);
 
   // VE
   // version : Query device for version of embedded software
@@ -285,6 +288,13 @@ public:
   void write_discrete_wavelength(const uint16_t index, bool &success) {throw std::runtime_error("not implemented");}
 
 
+  /**
+   * Custom methods that will be commonly used by a client
+   */
+  void get_range_map(std::map<int16_t,std::string> &r) {r = m_ranges;}
+  //void set_measurement_mode(const uint16_t mode);
+  void get_pulse_map(std::map<uint16_t,std::string> &r) {r = m_pulse_lengths;}
+  void get_averages_map(std::map<uint16_t,std::string> &r) {r = m_ave_windows;}
 
 private:
 
@@ -298,12 +308,13 @@ private:
   uint16_t m_e_threshold;
 
   AQSetting m_ave_query_state;
-  uint32_t m_pulse_length;
+  uint16_t m_pulse_length;
 
-  std::map<int16_t,std::string> m_energy_ranges;
-  std::map<int16_t,std::string> m_power_ranges;
+  std::map<int16_t,std::string> m_ranges;
+  //  std::map<int16_t,std::string> m_power_ranges;
   std::map<int16_t,std::string> m_wavelength_ranges;
-  std::map<int16_t,std::string> m_pulse_lengths;
+  std::map<uint16_t,std::string> m_pulse_lengths;
+  std::map<uint16_t,std::string> m_ave_windows;
 
   std::map<char,std::string> m_measurement_units;
 

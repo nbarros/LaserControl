@@ -10,6 +10,7 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
 namespace util {
 
@@ -19,8 +20,16 @@ int char2int(const char c);
 
 void enumerate_ports();
 
-// FIXME: Implement this
 std::string find_port(std::string param);
+
+
+template <typename T>
+std::string serial_map(const std::map<T,std::string> m);
+
+
+std::string serialize_map(const std::map<uint16_t,std::string> m);
+
+std::string serialize_map(const std::map<int16_t,std::string> m);
 
 }
 

@@ -241,12 +241,27 @@ Table 6 below.
 
 }
 
+void Laser::security(uint16_t &code,std::string &msg)
+{
+  std::string tmp_code;
+  security(tmp_code,msg);
+  code = static_cast<uint16_t>(std::stoul(tmp_code) & 0xFFFF);
+}
+
 void Laser::security(Security &code,std::string &msg)
 {
   std::string tmp_code;
   security(tmp_code,msg);
   code = static_cast<Security>(std::stol(tmp_code));
 }
+
+void Laser::security(std::string &full_desc)
+{
+  std::string c,d;
+  security(c,d);
+  full_desc = c + ": " + d;
+}
+
 
 void Laser::set_repetition_rate(float rate)
 {

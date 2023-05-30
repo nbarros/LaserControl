@@ -102,6 +102,9 @@ public:
    */
   void security(std::string &code,std::string &msg);
   void security(Security &code,std::string &msg);
+  void security(uint16_t &code,std::string &msg);
+
+  void security(std::string &full_desc);
   /**
    * Set the repetition rate of the laser
    * # -- Should not be changed..

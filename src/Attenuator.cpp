@@ -209,10 +209,11 @@ void Attenuator::set_resolution(const enum Resolution res)
   write_cmd(msg.str());
 }
 
-void Attenuator::set_idle_current(const uint8_t val)
+void Attenuator::set_idle_current(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "ws "<< static_cast<uint16_t>(val & 0xFF);
+  // note, only values up to 255 are accepted
+  msg << "ws "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_idle_current : Setting idle current to ["
       << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
@@ -221,10 +222,10 @@ void Attenuator::set_idle_current(const uint8_t val)
   m_current_idle = val;
 }
 
-void Attenuator::set_moving_current(const uint8_t val)
+void Attenuator::set_moving_current(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "wm "<< static_cast<uint16_t>(val & 0xFF);
+  msg << "wm "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_moving_current : Setting moving current to ["
       << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
@@ -233,10 +234,10 @@ void Attenuator::set_moving_current(const uint8_t val)
   m_current_move = val;
 }
 
-void Attenuator::set_acceleration(const uint8_t val)
+void Attenuator::set_acceleration(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "a "<< static_cast<uint16_t>(val & 0xFF);
+  msg << "a "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_acceleration : Setting acceleration to ["
       << msg.str() << "]" << std::endl;
@@ -245,10 +246,10 @@ void Attenuator::set_acceleration(const uint8_t val)
   m_acceleration = val;
 }
 
-void Attenuator::set_deceleration(const uint8_t val)
+void Attenuator::set_deceleration(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "d "<< static_cast<uint16_t>(val & 0xFF);
+  msg << "d "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_deceleration : Setting deceleration to ["
       << msg.str() << "]" << std::endl;
@@ -351,7 +352,7 @@ void Attenuator::refresh_status()
 // for instance, one could want to have separate threads checking on the position
 // and therefore would have no use for having the system locking while waiting for a status of '0'
 
-void Attenuator::get_position(int32_t &position, uint32_t &status, bool wait)
+void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
 {
   // query status and position of the attenuator motor
   m_serial.write(std::string("o"));
@@ -395,7 +396,7 @@ void Attenuator::get_position(int32_t &position, uint32_t &status, bool wait)
 void Attenuator::get_position(int32_t &position, enum MotorState &status, bool wait)
 {
 
-  uint32_t tmp_st;
+  uint16_t tmp_st;
   get_position(position,tmp_st,wait);
   status = static_cast<enum MotorState>(tmp_st);
 }
@@ -485,9 +486,9 @@ void Attenuator::get_serial_number(std::string &sn)
 ////////////////////////////////////////////////////////////
 
 
-void Attenuator::get_resolution(uint32_t &res)
+void Attenuator::get_resolution(uint16_t &res)
 {
-  res = static_cast<uint32_t>(m_resolution);
+  res = static_cast<uint16_t>(m_resolution);
   if (res == 6)
   {
     res = 16;

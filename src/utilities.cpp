@@ -9,6 +9,7 @@
 #include <iostream>
 #include <serial/serial.h>
 #include <sstream>
+#include <set>
 
 using std::vector;
 using std::string;
@@ -33,6 +34,33 @@ int char2int(const char c)
   // see https://sentry.io/answers/char-to-int-in-c-and-cpp/
   return  (c - '0');
 
+}
+
+std::string escape(const char* src)
+{
+  return escape(src,{'\n','\t','\r'},'\\');
+}
+std::string escape(const char* src, const std::set<char> escapee, const char marker)
+{
+  std::string r;
+  static const std::map<char,char> specials = {{'\n','n'},{'\r','r'},{'\t','t'}};
+  while (char c = *src++)
+  {
+    if (escapee.find(c) != escapee.end())
+      r += marker;
+    //r += c; // to get the desired behavior,
+    // replace this line with: r += c == '\n' ? 'n' : c;
+    std::map<char,char>::const_iterator it = specials.find(c);
+    if (it != specials.end())
+    {
+      r += it->second;
+    }
+    else
+    {
+      r += c;
+    }
+  }
+  return r;
 }
 
 void enumerate_ports()

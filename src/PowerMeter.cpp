@@ -57,6 +57,16 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
 #endif
     /// we have a connection. Lets initialize some settings
 
+    /** FIXME:
+     * Should we set up defaults or just establish a connection and instead refresh the local variables
+     * from the existing settings?
+     */
+
+    // -- just query the local status
+
+    // -- do not set anything, just query to fill up the maps
+
+
     // set the range (and fill in the map)
     //set_range(m_range);
     // query a couple of settings that need to be listed
@@ -67,24 +77,41 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
     // The aim is to turn off averaging on bootup... but that doesn't seem to work?
     //NFB: This is not what the programmers guide says.
 
-    average_query(aNone,m_ave_query_state);
+    //average_query(aNone,m_ave_query_state);
+    average_query(aQuery,m_ave_query_state);
 
     // Set the wavelength to 266nm
     set_wavelength(m_wavelength);
 
-    // set the measurement to energy
-    bool s;
-    force_energy(s);
-    if (!s)
-    {
-      std::runtime_error("Failed to set device to energy mode. This should not happen");
-    }
-    // We're *trying* to set the Energy Threshold to the minimum value.
-    // This is a function called Energy Treshold in the guide to programmers.
-    // This doesn't work! Fix it!
-    //set_e_threshold(m_e_threshold);
+    // query ranges
+    get_all_ranges(m_range);
 
-    user_threshold(m_e_threshold,m_e_threshold);
+    // query wavelengths
+#ifdef DEBUG
+    std::string wls;
+    get_all_wavelengths(wls);
+    std::cout << "PowerMeter::PowerMeter : WL : [" << wls << "]" << std::endl;
+#endif
+    // pulse widths
+    pulse_length(0,m_pulse_length);
+
+    uint16_t min, max;
+    query_user_threshold(m_e_threshold,min,max);
+    /*
+      // set the measurement to energy
+      bool s;
+      force_energy(s);
+      if (!s)
+      {
+        std::runtime_error("Failed to set device to energy mode. This should not happen");
+      }
+      // We're *trying* to set the Energy Threshold to the minimum value.
+      // This is a function called Energy Treshold in the guide to programmers.
+      // This doesn't work! Fix it!
+      //set_e_threshold(m_e_threshold);
+
+      user_threshold(m_e_threshold,m_e_threshold);
+    */
   }
 
   // init measurement units map
@@ -99,8 +126,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
   m_measurement_units.insert({'X',"No measurement"});
 
 
-  get_all_ranges(m_range);
-
+  //get_all_ranges(m_range);
 
 }
 
@@ -108,39 +134,6 @@ PowerMeter::~PowerMeter ()
 {
 
 }
-
-
-//void PowerMeter::set_range(const int16_t range, std::string &answer)
-//void PowerMeter::set_range(const int16_t range, std::string &answer)
-//{
-//  std::map<int16_t,std::string>::iterator it = m_power_ranges.begin();
-//  if ((it = m_power_ranges.find(range)) != m_power_ranges.end())
-//  {
-//    // it is a valid range
-//#ifdef DEBUG
-//    std::cout << "PowerMeter::set_range : Setting range to " << it->second << std::endl;
-//#endif
-//    std::ostringstream cmd;
-//    cmd << "WN " << it->first;
-//    write_cmd(cmd.str());
-//    // then it is supposed to issue yet another command, but I am not sure what it does
-//    cmd.str("");
-//    cmd.flush();
-//    cmd << "AR";
-//    write_cmd(cmd.str());
-//    // this command is meant to have an answer, and therefore one should read it
-//    // TODO: What do we do with the answer? What's its structure?
-//    answer = m_serial.readline(0xFFF, "\r");
-//    m_range = range;
-//
-//  } else
-//  {
-//#ifdef DEBUG
-//  std::cerr << "PowerMeter::set_range : Range "<< range << " out of valid values [0,3]" << std::endl;
-//#endif
-//    throw serial::SerialException("bad range value");
-//  }
-//}
 
 void PowerMeter::get_range_fast(int16_t &range)
 {
@@ -192,15 +185,18 @@ void PowerMeter::get_energy(double &energy)
 void PowerMeter::get_average_flag(bool &flag)
 {
   std::string cmd = "AF";
-  write_cmd(cmd);
-  std::string answer = m_serial.readline(0xFFFF, "\r\n");
+  std::string resp;
+  send_cmd(cmd,resp);
+
+  //  write_cmd(cmd);
+  //  std::string answer = m_serial.readline(0xFFFF, "\r\n");
   // the answer should be "*0\n\r"
 #ifdef DEBUG
-  std::cout << "PowerMeter::get_average_flag : got answer [" << answer << "]" << std::endl;
+  std::cout << "PowerMeter::get_average_flag : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // strip the leading * and the trailing \n\r
-  answer = answer.substr(1,answer.size() - 3);
-  flag = (std::stol(answer)==0)?false:true;
+  resp = resp.substr(1,resp.size() - 3);
+  flag = (std::stol(resp)==0)?false:true;
 }
 
 void PowerMeter::average_query(const AQSetting q, AQSetting &answer)
@@ -215,14 +211,15 @@ void PowerMeter::average_query(const uint16_t q, uint16_t &a)
 {
   std::ostringstream cmd;
   cmd << "AQ " << q;
+  std::string resp;
 #ifdef DEBUG
   std::cout << "PowerMeter::set_average_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-  write_cmd(cmd.str());
-
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd.str(),resp);
+  //  write_cmd(cmd.str());
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::get_average_query : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::get_average_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // strip the first byte, as it indicates whether the command failed or not
 //  char s= resp.at(0);
@@ -253,15 +250,16 @@ void PowerMeter::average_query(const uint16_t q, uint16_t &a)
 
 void PowerMeter::get_all_ranges(int16_t &current_setting)
 {
-  std::ostringstream cmd;
-  cmd << "AR";
+  std::string cmd = "AR";
+  std::string resp;
 #ifdef DEBUG
-  std::cout << "PowerMeter::get_all_ranges : Sending query [" << cmd.str() << "]" << std::endl;
+  std::cout << "PowerMeter::get_all_ranges : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd.str());
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,resp);
+  //  write_cmd(cmd.str());
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::get_all_ranges : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::get_all_ranges : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // strip the first two bytes, as it indicates whether the command failed or not and in this case it does not matter
   resp = resp.substr(2);
@@ -298,7 +296,7 @@ void PowerMeter::get_all_ranges(int16_t &current_setting)
 // the logic is very simular to the previous method (for ranges)
 // the problem is that the output is very device specific
 // TODO: Get information from LANL
-void PowerMeter::get_all_wavelengths(int16_t &current_setting)
+void PowerMeter::get_all_wavelengths(uint16_t &current_setting)
 {
   throw std::runtime_error("Not implemented");
   /**
@@ -332,27 +330,33 @@ void PowerMeter::get_all_wavelengths(int16_t &current_setting)
 void PowerMeter::get_all_wavelengths(std::string &answer)
 {
   std::string cmd = "AW";
-  std::string rr;
+  //std::string rr;
 #ifdef DEBUG
   std::cout << "PowerMeter::get_all_wavelengths : Sending query [" << cmd << "]" << std::endl;
 #endif
-  send_cmd(cmd,rr);
+  send_cmd(cmd,answer);
+#ifdef DEBUG
+  std::cout << "PowerMeter::get_all_wavelengths : got answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+
   // just remove the first byte and return the rest
-  answer = rr.substr(1);
+  answer = answer.substr(1);
 }
 
 
 void PowerMeter::bc20_sensor_mode(BC20 query,BC20 &answer)
 {
   std::ostringstream cmd;
+  std::string resp;
   cmd << "BQ " << static_cast<int>(query);
 #ifdef DEBUG
   std::cout << "PowerMeter::bc20_sensor_mode : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-  write_cmd(cmd.str());
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd.str(),resp);
+  //  write_cmd(cmd.str());
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::bc20_sensor_mode : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::bc20_sensor_mode : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // strip the first byte, as it indicates whether the command failed or not
   //char s= resp.at(0);
@@ -364,14 +368,16 @@ void PowerMeter::bc20_sensor_mode(BC20 query,BC20 &answer)
 void PowerMeter::diffuser_query(const DiffuserSetting s, DiffuserSetting &answer)
 {
   std::ostringstream cmd;
+  std::string resp;
   cmd << "DQ " << static_cast<int>(s);
 #ifdef DEBUG
   std::cout << "PowerMeter::diffuser_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-  write_cmd(cmd.str());
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd.str(),resp);
+  //  write_cmd(cmd.str());
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::diffuser_query : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::diffuser_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
 
@@ -397,13 +403,15 @@ void PowerMeter::diffuser_query(const DiffuserSetting s, DiffuserSetting &answer
 void PowerMeter::exposure_energy(double &energy, uint32_t &pulses, uint32_t &et)
 {
   std::string cmd = "EE";
+  std::string resp;
 #ifdef DEBUG
   std::cout << "PowerMeter::exposure_energy : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,resp);
+  //  write_cmd(cmd);
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::exposure_energy : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::exposure_energy : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
   if (resp.at(0) == '*')
@@ -432,13 +440,15 @@ void PowerMeter::exposure_energy(double &energy, uint32_t &pulses, uint32_t &et)
 void PowerMeter::energy_flag(bool &new_val)
 {
   std::string cmd = "EF";
+  std::string resp;
 #ifdef DEBUG
   std::cout << "PowerMeter::energy_flag : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,resp);
+  //  write_cmd(cmd);
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::energy_flag : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::energy_flag : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   new_val = (std::stol(resp.substr(1)) == 0)?false:true;
 }
@@ -446,13 +456,15 @@ void PowerMeter::energy_flag(bool &new_val)
 void PowerMeter::energy_ready(bool &new_val)
 {
   std::string cmd = "ER";
+  std::string resp;
 #ifdef DEBUG
   std::cout << "PowerMeter::energy_ready : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,resp);
+  //  write_cmd(cmd);
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::energy_ready : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::energy_ready : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   new_val = (std::stol(resp.substr(1)) == 0)?false:true;
 }
@@ -461,16 +473,16 @@ void PowerMeter::energy_ready(bool &new_val)
 void PowerMeter::energy_threshold(const uint32_t et, uint32_t &answer)
 {
   std::ostringstream cmd;
+  std::string resp;
   cmd << "ET " << et;
 #ifdef DEBUG
   std::cout << "PowerMeter::energy_threshold : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-
-  write_cmd(cmd.str());
-
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd.str(),resp);
+  //  write_cmd(cmd);
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::energy_threshold : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::energy_threshold : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
   answer = std::stoul(resp.substr(1,1));
@@ -481,13 +493,15 @@ void PowerMeter::energy_threshold(const uint32_t et, uint32_t &answer)
 void PowerMeter::force_energy(bool &success)
 {
   std::string cmd = "FE";
+  std::string resp ;
 #ifdef DEBUG
   std::cout << "PowerMeter::force_energy : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,resp);
+  //  write_cmd(cmd);
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::force_energy : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::force_energy : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   success = (resp.at(0) == '?')?false:true;
 }
@@ -495,13 +509,15 @@ void PowerMeter::force_energy(bool &success)
 void PowerMeter::force_power(bool &success)
 {
   std::string cmd = "FP";
+  std::string resp;
 #ifdef DEBUG
   std::cout << "PowerMeter::force_power : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,resp);
+  //  write_cmd(cmd);
+  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::force_power : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::force_power : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   success = (resp.at(0) == '?')?false:true;
 }
@@ -513,10 +529,13 @@ void PowerMeter::filter_query(const DiffuserSetting s, DiffuserSetting &answer)
 #ifdef DEBUG
   std::cout << "PowerMeter::filter_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-  write_cmd(cmd.str());
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  std::string resp;
+  send_cmd(cmd.str(),resp);
+  //  write_cmd(cmd.str());
+  //  read_cmd()
+  //= m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::filter_query : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::filter_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
 
@@ -542,13 +561,16 @@ void PowerMeter::filter_query(const DiffuserSetting s, DiffuserSetting &answer)
 void PowerMeter::force_exposure(bool &success)
 {
   std::string cmd = "FX";
+  std::string resp;
 #ifdef DEBUG
   std::cout << "PowerMeter::force_exposure : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,resp);
+  //  write_cmd(cmd);
+  //  read_cmd(resp);
+  //= m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::force_exposure : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::force_exposure : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   success = (resp.at(0) == '?')?false:true;
 }
@@ -560,12 +582,14 @@ void PowerMeter::head_info_raw(std::string &answer)
 #ifdef DEBUG
   std::cout << "PowerMeter::head_info_raw : Sending query [" << cmd << "]" << std::endl;
 #endif
-  write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, "\r\n");
+  send_cmd(cmd,answer);
+  //  write_cmd(cmd);
+  //  read_cmd(answer);
+  //std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::head_info_raw : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::head_info_raw : got answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
-  answer = resp;
+  //answer = resp;
 }
 
 
@@ -857,8 +881,6 @@ void PowerMeter::query_user_threshold(uint16_t &current, uint16_t &min, uint16_t
   m_e_threshold = current;
   min = std::stoul(tokens.at(1)) & 0xFFFF;
   max = std::stoul(tokens.at(2)) & 0xFFFF;
-
-
 }
 
 void PowerMeter::version(std::string &value)
@@ -926,9 +948,10 @@ void PowerMeter::send_cmd(const std::string cmd, std::string &resp)
   std::cout << "PowerMeter::send_cmd : Sending query [" << cmd << "]" << std::endl;
 #endif
   write_cmd(cmd);
-  resp = m_serial.readline(0xFFFF, "\r\n");
+  read_cmd(resp);
+  //resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
-  std::cout << "PowerMeter::send_cmd : got answer [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::send_cmd : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 }
 
@@ -951,7 +974,6 @@ void PowerMeter::init_pulse_lengths()
      m_pulse_lengths.insert({c,t});
      c++;
    }
-
 }
 
 }

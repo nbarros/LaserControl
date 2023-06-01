@@ -11,7 +11,8 @@
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
-#include  <string>
+#include <string>
+#include <utilities.hh>
 
 namespace device {
 
@@ -24,6 +25,11 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   m_rate(10.0),
   m_qswitch(400)
 {
+
+  // -- change the timeout to something smaller
+  // 50 ms?
+  serial::Timeout t = serial::Timeout::simpleTimeout(100);
+  m_serial.setTimeout(t);
   // note that in C++ the base class constructor is the first to be called
   // by now the serial connection is set up and ready to be opened
 
@@ -66,6 +72,7 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
 #endif
 
 
+    // FIXME: We should not initialize anything. Or should we?
     /// we have a connection. Lets initialize some settings
     set_prescale(m_prescale);
     set_pump_voltage(m_pump_hv);
@@ -230,13 +237,13 @@ Table 6 below.
    */
   std::string cmd = "SE";
   write_cmd(cmd);
-
-  std::string resp = m_serial.readline(0xFFFF,m_com_post);
+  read_cmd(code);
+  //m_serial.readline(code,0xFFFF,"\r");
 #ifdef DEBUG
-   std::cout << "Laser::security : Received answer [" << resp << "]" << std::endl;
+   std::cout << "Laser::security : Received answer [" << util::escape(code.c_str()) << "]" << std::endl;
 #endif
 
-   code = resp;
+   //code = resp;
    msg = m_sec_map[code];
 
 }

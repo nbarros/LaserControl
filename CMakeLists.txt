@@ -73,3 +73,5 @@ target_link_libraries(probe_serial_ports PUBLIC LaserControl)
 add_executable(test_all_devices EXCLUDE_FROM_ALL examples/test_all_devices.cc)
 target_link_libraries(test_all_devices PUBLIC LaserControl)
 
+add_executable(test_string_formatting EXCLUDE_FROM_ALL examples/test_string_formatting.cc)
+target_link_libraries(test_string_formatting PUBLIC LaserControl)

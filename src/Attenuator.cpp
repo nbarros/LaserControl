@@ -32,11 +32,16 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
   m_report_on_zero(false),
   m_serial_number("unknown")
   {
+  // -- the attenuator is weird, as the termination of the
+  // answers/reads is not the same as the
+  // termination of the writes. Had to overload the functions
+
   // open the serial port with a 1s timeout by default
   m_serial.setBaudrate(m_baud);
   m_serial.setPort(m_comport);
   m_serial.setBytesize(serial::eightbits);
   m_serial.setParity(serial::parity_none);
+  m_timeout_ms = 50;
   serial::Timeout t = serial::Timeout::simpleTimeout(m_timeout_ms);
   m_serial.setTimeout(t);
   m_serial.setStopbits(serial::stopbits_one);
@@ -275,7 +280,8 @@ const std::string Attenuator::get_status_raw()
 {
   std::string msg = "p";
   write_cmd(msg);
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
+  std::string resp;
+  read_cmd(resp);
 #ifdef DEBUG
   std::cout << "Attenuator::get_status_raw : Resp ["<< resp << "]" << std::endl;
 #endif
@@ -289,7 +295,8 @@ void Attenuator::refresh_status()
   std::string msg= "pc";
   write_cmd(msg);
 
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
+  std::string resp;
+  read_cmd(resp);
 #ifdef DEBUG
   std::cout << "Attenuator::refresh_status : Resp ["<< resp << "]" << std::endl;
 #endif
@@ -355,8 +362,10 @@ void Attenuator::refresh_status()
 void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
 {
   // query status and position of the attenuator motor
-  m_serial.write(std::string("o"));
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
+  std::string msg("o");
+  write_cmd(msg);
+  std::string resp;
+  read_cmd(resp);
   // the answer already comes stripped from the carriage return '\r'
 #ifdef DEBUG
   std::cout << "Attenuator::get_position : Resp ["<< resp << "]" << std::endl;
@@ -378,7 +387,6 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
   status = std::stoul(tokens.at(0));
 
   // -- if wait is set to true, we need to do the extra length of looping until status is 0
-
   if (wait)
   {
     while(status != 0)
@@ -388,7 +396,7 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
 #endif
       // call the function again
       get_position(position,status,false);
-      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
   }
 }
@@ -429,7 +437,6 @@ void Attenuator::save_settings()
 {
   std::string msg = "ss";
   write_cmd(msg);
-
 }
 
 void Attenuator::reset_controller()
@@ -468,12 +475,13 @@ void Attenuator::get_serial_number(std::string &sn)
 {
   std::string cmd = "n";
   write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
-#ifdef DEBUG
-  std::cout << "Attenuator::get_serial_number : Resp ["<< resp << "]" << std::endl;
-#endif
+  read_cmd(sn);
+  //std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
+  //#ifdef DEBUG
+  //  std::cout << "Attenuator::get_serial_number : Resp ["<< resp << "]" << std::endl;
+  //#endif
   // get rid of the echo byte
-  sn = resp.substr(1);
+  sn = sn.substr(1);
   m_serial_number = sn;
 }
 
@@ -529,8 +537,27 @@ void Attenuator::refresh_position()
   get_position(m_position,m_motor_state,false);
 }
 
-const float Attenuator::convert_current(uint8_t val)
+const float Attenuator::convert_current(uint16_t val)
 {
   return 0.00835 * val;
 }
+
+void Attenuator::write_cmd(const std::string cmd)
+{
+  Device::write_cmd(cmd);
+  // attenuator instruction on page 31 say that we need to
+  // add an interval of 50ms between commands
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+}
+
+void Attenuator::read_cmd(std::string &answer)
+{
+  size_t nbytes = m_serial.readline(answer,0xFFFF,"\r\n");
+
+#ifdef DEBUG
+  std::cout << "Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+}
+
+
 }

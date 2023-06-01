@@ -8,6 +8,7 @@
 #include <Device.hh>
 #include <thread>
 #include <chrono>
+#include <utilities.hh>
 
 #ifdef DEBUG
 #include <iostream>
@@ -21,7 +22,7 @@ namespace device
         m_baud(baud_rate),
         m_com_pre(""),
         m_com_post("\r"),
-        m_timeout_ms(1000)
+        m_timeout_ms(50)
   {
 
     // initialize the serial connection
@@ -47,17 +48,25 @@ namespace device
     // first flush any pending buffers
     m_serial.flush();
     std::string msg = m_com_pre + cmd + m_com_post;
+#ifdef DEBUG
+    std::cout << "sending command [" << util::escape(msg.c_str()) << "]" << std::endl;
+#endif
     size_t written_bytes = m_serial.write(msg);
   #ifdef DEBUG
     std::cout << "Device::write_cmd : Wrote "<< written_bytes << " bytes" << std::endl;
   #endif
+    // NFB : -- this is not true
     // -- delay of 50 ms between commands is required
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
 
   void Device::read_cmd(std::string &answer)
   {
-    answer = m_serial.readline(0xFFFF,m_com_post);
+    size_t nbytes = m_serial.readline(answer,0xFFFF,m_com_post);
+#ifdef DEBUG
+    std::cout << "Received " << nbytes << " bytes answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+
   }
 
 

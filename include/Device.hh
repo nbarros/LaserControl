@@ -29,6 +29,9 @@ namespace device
     void set_timeout(const uint32_t ms) { m_timeout_ms = ms; }
     void get_timeout(uint32_t &ms) {ms = m_timeout_ms;}
 
+    void set_com_prefix(const std::string pre) {m_com_pre = pre;}
+    void set_com_suffix(const std::string suf) {m_com_post = suf;}
+
   protected:
     /// local member declaration
     ///

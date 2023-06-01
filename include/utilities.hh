@@ -11,10 +11,15 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <set>
 
 namespace util {
 
 void tokenize_string(std::string &str, std::vector<std::string> &tokens, std::string sep = ";");
+
+std::string escape(const char* src);
+
+std::string escape(const char* src, const std::set<char> escapee, const char marker);
 
 int char2int(const char c);
 

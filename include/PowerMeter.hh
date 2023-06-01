@@ -86,7 +86,7 @@ public:
   // queries the available modes, fills the map and returns the current setting in the variable
   void get_all_ranges(int16_t &current_setting);
   // AW
-  void get_all_wavelengths(int16_t &current_setting);
+  void get_all_wavelengths(uint16_t &current_setting);
   void get_all_wavelengths(std::string &answer);
   // BQ
   // BC20 Query

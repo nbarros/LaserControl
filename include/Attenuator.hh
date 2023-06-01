@@ -315,7 +315,16 @@ private:
    * @return corresponding position in steps
    */
   const int32_t trans_to_steps(const float trans);
-  const float convert_current(uint8_t val);
+  const float convert_current(uint16_t val);
+
+  /**
+   * Overload of Device::write_cmd, as the attenuator requires that 50 ms
+   * are injected between commands
+   * @param cmd
+   */
+  void write_cmd(const std::string cmd);
+  void read_cmd(std::string &answer);
+
 
   /// local variables
   int32_t m_offset;

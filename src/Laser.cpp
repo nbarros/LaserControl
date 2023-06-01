@@ -30,7 +30,7 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
 
   // -- change the timeout to something smaller
   // 50 ms?
-  serial::Timeout t = serial::Timeout::simpleTimeout(100);
+  serial::Timeout t = serial::Timeout::simpleTimeout(500);
   m_serial.setTimeout(t);
   // note that in C++ the base class constructor is the first to be called
   // by now the serial connection is set up and ready to be opened
@@ -243,6 +243,8 @@ Table 6 below.
   std::string cmd = "SE";
   std::string resp;
   write_cmd(cmd);
+  std::this_thread::sleep_for(std::chrono::seconds(1));
+
   read_cmd(resp);
   //m_serial.readline(code,0xFFFF,"\r");
 #ifdef DEBUG

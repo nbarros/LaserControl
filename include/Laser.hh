@@ -127,6 +127,10 @@ public:
   void set_qswitch(uint32_t qs);
 
 private:
+
+  void write_cmd(const std::string cmd);
+  void read_cmd(std::string &answer);
+
   // disallow any kind of copy constructor or assignment operators
   Laser (Laser &&other) = delete;
   Laser (const Laser &other) = delete;

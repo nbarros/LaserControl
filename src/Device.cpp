@@ -63,10 +63,13 @@ namespace device
   void Device::read_cmd(std::string &answer)
   {
     size_t nbytes = m_serial.readline(answer,0xFFFF,m_com_post);
+    // one should remove the chars
 #ifdef DEBUG
     std::cout << "Received " << nbytes << " bytes answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
 
+    // trim the suffix chars
+    answer.erase(answer.size()-m_com_post.size());
   }
 
 

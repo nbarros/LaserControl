@@ -908,7 +908,7 @@ void PowerMeter::version(std::string &value)
 void PowerMeter::wavelength_index(const uint16_t index, bool &success)
 {
   std::ostringstream cmd;
-    cmd << "UT " << index;
+    cmd << "WI " << index;
     std::string rr;
     send_cmd(cmd.str(),rr);
 
@@ -920,7 +920,7 @@ void PowerMeter::wavelength_index(const uint16_t index, bool &success)
 void PowerMeter::wavelength(const uint16_t wl, bool &success)
 {
   std::ostringstream cmd;
-    cmd << "UT " << wl;
+    cmd << "WL " << wl;
     std::string rr;
     send_cmd(cmd.str(),rr);
 

@@ -26,6 +26,7 @@ void tokenize_string(std::string &str, std::vector<std::string> &tokens, std::st
     tokens.push_back(str.substr(0, pos));
     str.erase(0, pos + sep.length());
   }
+  tokens.push_back(str);
 }
 
 int char2int(const char c)

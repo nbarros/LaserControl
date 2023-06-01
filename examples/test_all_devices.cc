@@ -64,7 +64,7 @@ void test_laser(const char*sn)
     // this laser sucks. How are we going to figure out that we are operating properly?
     // we have access to nothing in its processor.
     cout << log(label)<< "Check interlocks..." << endl;
-    uint16_t code;
+    std::string code;
     std::string desc;
     m_laser->security(code, desc);
     cout << log(label)<< "Laser responded [" << code << " : " << desc << "]" << endl;

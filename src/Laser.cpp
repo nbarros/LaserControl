@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include <string>
 #include <utilities.hh>
+#include <thread>
+#include <chrono>
 
 namespace device {
 
@@ -163,7 +165,7 @@ void Laser::set_pump_voltage(float hv)
   }
 
   std::ostringstream cmd;
-  cmd << "HV " << std::fixed << std::setprecision(2) << hv;
+  cmd << "VA " << std::fixed << std::setprecision(2) << hv;
 #ifdef DEBUG
     std::cout << "Laser::set_pump_voltage : Setting pump voltage to [" << cmd.str() << "]." << std::endl;
 #endif
@@ -303,6 +305,26 @@ void Laser::set_qswitch(uint32_t qs)
     write_cmd(cmd.str());
 
     m_qswitch = qs;
+
+}
+
+
+void Laser::write_cmd(const std::string cmd)
+{
+  Device::write_cmd(cmd);
+  // attenuator instruction on page 31 say that we need to
+  // add an interval of 50ms between commands
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+}
+
+void Laser::read_cmd(std::string &answer)
+{
+  size_t nbytes = m_serial.readline(answer,0xFFFF,"\r");
+
+#ifdef DEBUG
+  std::cout << "Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+  answer.erase(answer.size()-1);
 
 }
 

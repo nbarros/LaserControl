@@ -557,6 +557,8 @@ void Attenuator::read_cmd(std::string &answer)
 #ifdef DEBUG
   std::cout << "Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
+  answer.erase(answer.size()-2);
+
 }
 
 

@@ -22,7 +22,7 @@ namespace device
         m_baud(baud_rate),
         m_com_pre(""),
         m_com_post("\r"),
-        m_timeout_ms(50)
+        m_timeout_ms(500)
   {
 
     // initialize the serial connection
@@ -47,6 +47,9 @@ namespace device
   {
     // first flush any pending buffers
     m_serial.flush();
+    m_serial.flushInput();
+    m_serial.flushOutput();
+
     std::string msg = m_com_pre + cmd + m_com_post;
 #ifdef DEBUG
     std::cout << "sending command [" << util::escape(msg.c_str()) << "]" << std::endl;

@@ -76,10 +76,12 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
 
     // FIXME: We should not initialize anything. Or should we?
     /// we have a connection. Lets initialize some settings
-    set_prescale(m_prescale);
-    set_pump_voltage(m_pump_hv);
-    set_qswitch(m_qswitch);
-    set_repetition_rate(m_rate);
+    //set_prescale(m_prescale);
+    //set_pump_voltage(m_pump_hv);
+    //set_qswitch(m_qswitch);
+    //set_repetition_rate(m_rate);
+
+
     // actually, we should also query the device for its current settings
     // unfortunately, there is no such command
     // so the best is to set everything, and keeping good track of what are
@@ -144,7 +146,7 @@ void Laser::set_prescale(uint32_t pre)
 void Laser::set_pump_voltage(float hv)
 {
   /*
-    "HV" is a float w/ two decimal places, as a string
+    "VA" is a float w/ two decimal places, as a string
     MUST BE FORMATTED AS "HV X.XX"
     ANYTHING ELSE WILL THROW AN ERROR
     We should avoid setting the pump voltage REALLY high...
@@ -303,7 +305,6 @@ void Laser::set_qswitch(uint32_t qs)
     std::cout << "Laser::set_qswitch : Submitting command (" << cmd.str() << "). " << std::endl;
 #endif
     write_cmd(cmd.str());
-
     m_qswitch = qs;
 
 }
@@ -315,6 +316,7 @@ void Laser::write_cmd(const std::string cmd)
   // attenuator instruction on page 31 say that we need to
   // add an interval of 50ms between commands
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 }
 
 void Laser::read_cmd(std::string &answer)

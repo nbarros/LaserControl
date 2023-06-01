@@ -368,10 +368,13 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
   read_cmd(resp);
   // the answer already comes stripped from the carriage return '\r'
 #ifdef DEBUG
-  std::cout << "Attenuator::get_position : Resp ["<< resp << "]" << std::endl;
+  std::cout << "Attenuator::get_position : Resp ["<< util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // drop the first byte, as it is the echoed command 'o'
   resp = resp.substr(1);
+#ifdef DEBUG
+  std::cout << "Attenuator::get_position : Resp ["<< util::escape(resp.c_str()) << "]" << std::endl;
+#endif
   // tokenize the response
   std::vector<std::string> tokens;
   util::tokenize_string(resp,tokens);
@@ -385,6 +388,9 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
     throw std::runtime_error(msg.str());
   }
   status = std::stoul(tokens.at(0));
+#ifdef DEBUG
+      std::cout << "Attenuator::get_position : status ["<< status << "] pos [" << position << "]" << std::endl;
+#endif
 
   // -- if wait is set to true, we need to do the extra length of looping until status is 0
   if (wait)
@@ -552,7 +558,7 @@ void Attenuator::write_cmd(const std::string cmd)
 
 void Attenuator::read_cmd(std::string &answer)
 {
-  size_t nbytes = m_serial.readline(answer,0xFFFF,"\r\n");
+  size_t nbytes = m_serial.readline(answer,0xFFFF,"\n\r");
 
 #ifdef DEBUG
   std::cout << "Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;

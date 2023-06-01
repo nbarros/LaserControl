@@ -24,7 +24,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
 {
   // override the prefix
   m_com_pre = "$";
-  m_com_post = "\n\r";
+  m_com_post = "\r\n";
 
 //  // initialize the ranges map
 //  m_ranges.insert({0,std::string("10J")});

@@ -319,7 +319,7 @@ void Laser::write_cmd(const std::string cmd)
   Device::write_cmd(cmd);
   // attenuator instruction on page 31 say that we need to
   // add an interval of 50ms between commands
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
 }
 

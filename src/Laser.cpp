@@ -205,11 +205,12 @@ void Laser::get_shot_count(uint32_t &count)
    write_cmd(cmd);
 
    std::string resp = m_serial.readline(0xFFFF,m_com_post);
+   resp.erase(resp.size()-1);
 #ifdef DEBUG
-   std::cout << "Laser::get_shot_count : Received answer [" << resp << "]" << std::endl;
+   std::cout << "Laser::get_shot_count : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
    // according to the python script, the answer we want is in the bytes [3:11]
-   count = stoul(resp.substr(3,9)); // 9 is the max length
+   count = stoul(resp); // 9 is the max length
    //FIXME: This may require revising
    // manual states
    // The response to SC (Shot count) is a 9 digit ASCII code terminated by a Carriage Return
@@ -240,15 +241,16 @@ Table 6 below.
 09 Flow switch stuck on
    */
   std::string cmd = "SE";
+  std::string resp;
   write_cmd(cmd);
-  read_cmd(code);
+  read_cmd(resp);
   //m_serial.readline(code,0xFFFF,"\r");
 #ifdef DEBUG
-   std::cout << "Laser::security : Received answer [" << util::escape(code.c_str()) << "]" << std::endl;
+   std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
-   //code = resp;
-   msg = m_sec_map[code];
+   code = resp;
+   msg = m_sec_map[resp];
 
 }
 

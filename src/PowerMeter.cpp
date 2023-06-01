@@ -19,7 +19,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
   m_wavelength(266),
   m_e_threshold(1),
   m_ave_query_state(aNone),
-  m_pulse_length()
+  m_pulse_length(0)
 
 {
   // override the prefix
@@ -81,6 +81,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
     average_query(aQuery,m_ave_query_state);
 
     // Set the wavelength to 266nm
+    // this is the only command I am not sure how to query directly
     set_wavelength(m_wavelength);
 
     // query ranges
@@ -97,6 +98,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
 
     uint16_t min, max;
     query_user_threshold(m_e_threshold,min,max);
+
     /*
       // set the measurement to energy
       bool s;
@@ -853,6 +855,19 @@ void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)
   cmd << "UT " << value;
   std::string rr;
   send_cmd(cmd.str(),rr);
+  // -- undocumented difference
+  // out of range is answered with ?OUT OF RANGE
+  if (rr.at(0) == '?')
+  {
+    // command somehow failed.
+    // either throw an exception or just return the answer of what setting it is right now
+    answer = m_e_threshold;
+#ifdef DEBUG
+    std::cout << "Failed to set the threshold. Answer : [" << rr << "]" << std::endl;
+#endif
+    return;
+  }
+  // -- if it didn't fail, just continue
   // first strip the return byte
   rr = rr.substr(1);
   // now tokenize the answer
@@ -861,10 +876,6 @@ void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)
   answer = std::stoul(tokens.at(0)) & 0xFFFF;
   m_e_threshold = answer;
 
-  // we should also store these values
-  // the next two values are the minimum range and max range
-  // min = tokens.at(1);
-  // max = tokens.at(2);
 }
 
 void PowerMeter::query_user_threshold(uint16_t &current, uint16_t &min, uint16_t &max)
@@ -880,7 +891,9 @@ void PowerMeter::query_user_threshold(uint16_t &current, uint16_t &min, uint16_t
   current = std::stoul(tokens.at(0)) & 0xFFFF;
   m_e_threshold = current;
   min = std::stoul(tokens.at(1)) & 0xFFFF;
+  m_threshold_ranges.first = min;
   max = std::stoul(tokens.at(2)) & 0xFFFF;
+  m_threshold_ranges.second = max;
 }
 
 void PowerMeter::version(std::string &value)

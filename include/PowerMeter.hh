@@ -317,7 +317,7 @@ private:
   std::map<uint16_t,std::string> m_ave_windows;
 
   std::map<char,std::string> m_measurement_units;
-
+  std::pair<uint16_t, uint16_t> m_threshold_ranges;
 
 };
 

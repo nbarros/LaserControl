@@ -212,17 +212,17 @@ int main(int argc, char**argv)
   // connect to it and query something
 
 
-  cout <<"\n\n Testing with a 200 ms timeout and (\\n\\r,\\n\\r)  termination\n\n" << endl;
-  test_powermeter(200,"\n\r","\n\r");
+  cout <<"\n\n Testing with a 500 ms timeout and (\\n\\r,\\n\\r)  termination\n\n" << endl;
+  test_powermeter(500,"\n\r","\n\r");
 
-  cout <<"\n\n Testing with a 200 ms timeout and (\\n\\r,\\r\\n)  termination\n\n" << endl;
-  test_powermeter(200,"\n\r","\r\n");
+  cout <<"\n\n Testing with a 500 ms timeout and (\\n\\r,\\r\\n)  termination\n\n" << endl;
+  test_powermeter(500,"\n\r","\r\n");
 
-  cout <<"\n\n Testing with a 200 ms timeout and (\\r\\n,\\r\\n)  termination\n\n" << endl;
-  test_powermeter(200,"\r\n","\r\n");
+  cout <<"\n\n Testing with a 500 ms timeout and (\\r\\n,\\r\\n)  termination\n\n" << endl;
+  test_powermeter(500,"\r\n","\r\n");
 
-  cout <<"\n\n Testing with a 200 ms timeout and (\\r\\n,\\n\\r)  termination\n\n" << endl;
-  test_powermeter(200,"\r\n","\n\r");
+  cout <<"\n\n Testing with a 500 ms timeout and (\\r\\n,\\n\\r)  termination\n\n" << endl;
+  test_powermeter(500,"\r\n","\n\r");
 
 
   return 0;

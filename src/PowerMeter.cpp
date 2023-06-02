@@ -26,7 +26,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
 {
   // override the prefix
   m_com_pre = "$";
-  m_com_sfx = "\n\r";
+  m_com_sfx = "\r\n";
   m_read_sfx= "\r\n";
 
   // initialize the serial connection
@@ -75,27 +75,27 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
     //NFB: This is not what the programmers guide says.
 
     //average_query(aNone,m_ave_query_state);
-    average_query(aQuery,m_ave_query_state);
-
-    // query wavelengths
-#ifdef DEBUG
-    std::string wls;
-    get_all_wavelengths(wls);
-    std::cout << "PowerMeter::PowerMeter : WL : [" << wls << "]" << std::endl;
-#endif
-    // query all wavelengths
-    // Set the wavelength to 266nm
-    // this is the only command I am not sure how to query directly
-    //set_wavelength(m_wavelength);
-
-    // query ranges
-    get_all_ranges(m_range);
-
-    // pulse widths
-    pulse_length(0,m_pulse_length);
-
-    uint16_t min, max;
-    query_user_threshold(m_e_threshold,min,max);
+//    average_query(aQuery,m_ave_query_state);
+//
+//    // query wavelengths
+//#ifdef DEBUG
+//    std::string wls;
+//    get_all_wavelengths(wls);
+//    std::cout << "PowerMeter::PowerMeter : WL : [" << wls << "]" << std::endl;
+//#endif
+//    // query all wavelengths
+//    // Set the wavelength to 266nm
+//    // this is the only command I am not sure how to query directly
+//    //set_wavelength(m_wavelength);
+//
+//    // query ranges
+//    get_all_ranges(m_range);
+//
+//    // pulse widths
+//    pulse_length(0,m_pulse_length);
+//
+//    uint16_t min, max;
+//    query_user_threshold(m_e_threshold,min,max);
 
     /*
       // set the measurement to energy

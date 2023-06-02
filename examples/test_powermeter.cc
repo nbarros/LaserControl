@@ -78,6 +78,15 @@ void test_powermeter(uint32_t timeout, std::string read_suffix)
       }
     }
 
+    uint16_t qstate;
+    m_pm->average_query(0,qstate);
+    cout << log(label) << "Average query state : " << qstate << endl;
+
+    std::string wls;
+    m_pm->get_all_wavelengths(wls);
+        std::cout << log(label) << ": WL : [" << wls << "]" << std::endl;
+
+
 
       // -- this sets the cache variables so that we can get a whole ton of stuff out of it
       cout << log(label)<< "Querying head information" << endl;

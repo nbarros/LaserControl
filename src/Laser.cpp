@@ -8,11 +8,11 @@
 #include <Laser.hh>
 #include <iostream>
 #include <serial/serial.h>
+#include <utilities.hh>
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
 #include <string>
-#include <utilities.hh>
 #include <thread>
 #include <chrono>
 
@@ -25,13 +25,16 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   m_prescale(0),
   m_pump_hv(1.0),
   m_rate(10.0),
-  m_qswitch(400)
+  m_qswitch(400),
+  m_wait_read(false)
 {
 
+  m_read_sfx = m_com_sfx;
   // -- change the timeout to something smaller
   // 50 ms?
-  serial::Timeout t = serial::Timeout::simpleTimeout(500);
-  m_serial.setTimeout(t);
+  // by default leave timeout to max
+  //  serial::Timeout t = serial::Timeout::simpleTimeout(500);
+  //  m_serial.setTimeout(t);
   // note that in C++ the base class constructor is the first to be called
   // by now the serial connection is set up and ready to be opened
 
@@ -53,6 +56,7 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   // 8 bit byte
   // no parity
   // 1 stop bit
+  m_serial.setPort(m_comport);
   m_serial.setBaudrate(m_baud);
   m_serial.setBytesize(serial::eightbits);
   m_serial.setParity(serial::parity_none);
@@ -176,26 +180,18 @@ void Laser::set_pump_voltage(float hv)
   m_pump_hv = hv;
 }
 
-void Laser::single_shot(bool force)
+// enable single shot mode.
+// this implies setting the prescale to 0, if it is not so
+void Laser::single_shot()
 {
-  if (force)
-  {
-    // set the prescale to 0 first, regardless of the previous value
-    set_prescale(0);
-  } else
-  {
-    // if prescale is not zero, throw an exception
-    ;
-  }
+  // set the prescale to 0 first, regardless of the previous value
+  set_prescale(0);
 
   std::string cmd = "SS";
-
 #ifdef DEBUG
-    std::cout << "Laser::set_ss_mode : Firing single shot." << std::endl;
+    std::cout << "Laser::set_ss_mode : Enabling single shot mode." << std::endl;
 #endif
-
   write_cmd(cmd);
-
 }
 
 void Laser::get_shot_count(uint32_t &count)
@@ -204,7 +200,7 @@ void Laser::get_shot_count(uint32_t &count)
 
    write_cmd(cmd);
 
-   std::string resp = m_serial.readline(0xFFFF,m_com_post);
+   std::string resp = m_serial.readline(0xFFFF,m_com_sfx);
    resp.erase(resp.size()-1);
 #ifdef DEBUG
    std::cout << "Laser::get_shot_count : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
@@ -223,6 +219,33 @@ void Laser::get_shot_count(uint32_t &count)
 }
 
 void Laser::security(std::string &code,std::string &msg)
+{
+  security(code);
+  if (m_sec_map.count(code)!= 0)
+  {
+    msg = m_sec_map[code];
+  }
+  else
+  {
+    msg = "";
+  }
+}
+
+void Laser::security(uint16_t &code,std::string &msg)
+{
+  std::string tmp_code;
+  security(tmp_code,msg);
+  code = static_cast<uint16_t>(std::stoul(tmp_code) & 0xFFFF);
+}
+
+void Laser::security(Security &code,std::string &msg)
+{
+  std::string tmp_code;
+  security(tmp_code,msg);
+  code = static_cast<Security>(std::stol(tmp_code));
+}
+
+void Laser::security(std::string &code)
 {
   /* pp. 42 of manual
    * The response to SE is a 2 digit ASCII code, terminated by a Carriage Return
@@ -246,35 +269,12 @@ Table 6 below.
   std::this_thread::sleep_for(std::chrono::seconds(1));
 
   read_cmd(resp);
-  //m_serial.readline(code,0xFFFF,"\r");
+
 #ifdef DEBUG
    std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
    code = resp;
-   msg = m_sec_map[resp];
-
-}
-
-void Laser::security(uint16_t &code,std::string &msg)
-{
-  std::string tmp_code;
-  security(tmp_code,msg);
-  code = static_cast<uint16_t>(std::stoul(tmp_code) & 0xFFFF);
-}
-
-void Laser::security(Security &code,std::string &msg)
-{
-  std::string tmp_code;
-  security(tmp_code,msg);
-  code = static_cast<Security>(std::stol(tmp_code));
-}
-
-void Laser::security(std::string &full_desc)
-{
-  std::string c,d;
-  security(c,d);
-  full_desc = c + ": " + d;
 }
 
 
@@ -310,7 +310,6 @@ void Laser::set_qswitch(uint32_t qs)
 #endif
     write_cmd(cmd.str());
     m_qswitch = qs;
-
 }
 
 
@@ -325,12 +324,49 @@ void Laser::write_cmd(const std::string cmd)
 
 void Laser::read_cmd(std::string &answer)
 {
-  size_t nbytes = m_serial.readline(answer,0xFFFF,"\r");
+  // wait for the port to be ready
+  size_t nbytes = 0;
+  // only do this wait if the timeout is not 0
+  if (m_wait_read)
+  {
+    if(!m_serial.waitReadable())
+    {
+  #ifdef DEBUG
+    std::cout << "Laser::read_cmd : Timed out waiting for a readable state. Attempting to read anyway." << std::endl;
+  #endif
+    }
+  }
+  nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
+#ifdef DEBUG
+  std::cout << "Laser::read_cmd : Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+  answer.erase(answer.size()-m_read_sfx.length());
 
 #ifdef DEBUG
-  std::cout << "Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+  std::cout << "Laser::read_cmd : Trimmed answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
-  answer.erase(answer.size()-1);
+
+}
+
+void Laser::set_timeout_ms(uint32_t t)
+{
+  serial::Timeout to = serial::Timeout::simpleTimeout(t);
+m_serial.setTimeout(to);
+
+#ifdef DEBUG
+  std::cout << "Laser::set_timeout_ms : Setting timeout to [" << t << "] ms" << std::endl;
+#endif
+
+}
+
+void Laser::read_lines(std::vector<std::string> &lines)
+{
+  // wait for the port to be ready
+  size_t nbytes = 0;
+  lines = m_serial.readlines(0xFFFF,m_read_sfx);
+#ifdef DEBUG
+  std::cout << "Laser::read_lines : Received " << lines.size() << " strings" << std::endl;
+#endif
 
 }
 

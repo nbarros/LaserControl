@@ -46,7 +46,6 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
   m_serial.setTimeout(t);
   m_serial.setStopbits(serial::stopbits_one);
   m_serial.open();
-
   if (!m_serial.isOpen())
   {
 #ifdef DEBUG

@@ -51,25 +51,53 @@ void test_laser(const std::string port)
 int main(int argc, char**argv)
 {
 
-  std::string str = "o0;4000\n\r";
-  std::string escaped = util::escape(str.c_str(), {'"','\n','\t','\r'}, '\\');
+  std::string stat="pc1;0;0;0;59000;114;36;114;2;1;0;0;0;0;0;0;1;1;0;0;0;0;0;0;\n\r";
+  std::string escaped = util::escape(stat.c_str(), {'"','\n','\t','\r'}, '\\');
+  stat.erase(stat.size()-2);
+  stat = stat.substr(2);
 
-  cout <<"Original string :[" << str << "]" << endl;
-  cout <<"Escaped string : [" << escaped << "]" << endl;
+  cout << "Raw [" << stat << "]" << endl;
+  cout << "Escaped [" << util::escape(stat.c_str()) << "]" << endl;
 
-  str = str.substr(1); // drop the leading echo
-  cout << "[" << str << "]" << endl;
-  str.erase(str.size()-2); // drpo the trailing chars
-  cout << "[" << str << "]" << endl;
   std::vector<std::string> tokens;
+  util::tokenize_string(stat, tokens);
 
-  util::tokenize_string(str,tokens);
+  int arg1 = std::stol(tokens.at(0));
+  int arg2 = std::stol(tokens.at(1));
 
   for (auto e : tokens)
   {
     cout << "[" << e << "]" << endl;
-    cout << "[" << std::stoul(e) << "]" << endl;
   }
+
+  uint16_t arg3 = std::stoul(tokens.at(2)) & 0xFF;
+  uint16_t arg4 = std::stoul(tokens.at(3)) & 0xFF;
+  uint16_t arg5 = std::stoul(tokens.at(4));
+
+  uint16_t arg6 = std::stoul(tokens.at(5)) & 0xFF;
+  uint16_t arg7 = std::stoul(tokens.at(6)) & 0xFF;
+
+  uint16_t arg9 = std::stoul(tokens.at(8)) & 0xFF;
+  uint16_t arg10 = std::stoul(tokens.at(9)) & 0xFF;
+
+  uint16_t arg12 = std::stoul(tokens.at(11)) & 0xFF;
+  uint16_t arg13 = std::stoul(tokens.at(12)) & 0xFF;
+
+
+//  std::string str = "o0;4000\n\r";
+//  std::string escaped = util::escape(str.c_str(), {'"','\n','\t','\r'}, '\\');
+//
+//  cout <<"Original string :[" << str << "]" << endl;
+//  cout <<"Escaped string : [" << escaped << "]" << endl;
+//
+//  str = str.substr(1); // drop the leading echo
+//  cout << "[" << str << "]" << endl;
+//  str.erase(str.size()-2); // drpo the trailing chars
+//  cout << "[" << str << "]" << endl;
+//  std::vector<std::string> tokens;
+//
+//  util::tokenize_string(str,tokens);
+
 
 
   return 0;

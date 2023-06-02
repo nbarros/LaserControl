@@ -163,7 +163,7 @@ void test_attenuator(const char*sn)
     uint16_t acc, dec, res, cur_idle, cur_mov;
     m_att->get_acceleration(acc);
     cout << log(label)<< "Acceleration : " << acc << endl;
-    m_att->get_deceleration(acc);
+    m_att->get_deceleration(dec);
     cout << log(label)<< "Deceleration : " << dec << endl;
     m_att->get_resolution(res);
     cout << log(label)<< "Resolution   : " << res << endl;

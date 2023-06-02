@@ -86,7 +86,7 @@ public:
    *
    * @param force forces the prescale to 000
    */
-  void single_shot(bool force = false);
+  void single_shot();
 
   /**
    * Read the Shot Count
@@ -104,7 +104,7 @@ public:
   void security(Security &code,std::string &msg);
   void security(uint16_t &code,std::string &msg);
 
-  void security(std::string &full_desc);
+  void security(std::string &code);
   /**
    * Set the repetition rate of the laser
    * # -- Should not be changed..
@@ -126,6 +126,14 @@ public:
    */
   void set_qswitch(uint32_t qs);
 
+
+  void set_timeout_ms(uint32_t t);
+
+  void set_read_suffix(const std::string sfx) {m_read_sfx = sfx;}
+
+  void read_lines(std::vector<std::string> &lines);
+
+  void set_wait_read(bool v) {m_wait_read = v;}
 private:
 
   void write_cmd(const std::string cmd);
@@ -150,6 +158,8 @@ private:
   uint32_t m_qswitch;
 
   std::map<std::string,std::string> m_sec_map;
+  std::string m_read_sfx;
+  bool m_wait_read;
 
 };
 }

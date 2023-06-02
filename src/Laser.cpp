@@ -381,26 +381,4 @@ void Laser::read_cmd(std::string &answer)
 
 }
 
-void Laser::set_timeout_ms(uint32_t t)
-{
-  serial::Timeout to = serial::Timeout::simpleTimeout(t);
-m_serial.setTimeout(to);
-
-#ifdef DEBUG
-  std::cout << "Laser::set_timeout_ms : Setting timeout to [" << t << "] ms" << std::endl;
-#endif
-
-}
-
-void Laser::read_lines(std::vector<std::string> &lines)
-{
-  // wait for the port to be ready
-  //size_t nbytes = 0;
-  lines = m_serial.readlines(0xFFFF,m_read_sfx);
-#ifdef DEBUG
-  std::cout << "Laser::read_lines : Received " << lines.size() << " strings" << std::endl;
-#endif
-
-}
-
 }

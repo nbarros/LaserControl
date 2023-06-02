@@ -79,3 +79,5 @@ target_link_libraries(test_string_formatting PUBLIC LaserControl)
 add_executable(test_laser EXCLUDE_FROM_ALL examples/test_laser.cc)
 target_link_libraries(test_laser PUBLIC LaserControl)
 
+add_executable(test_pm EXCLUDE_FROM_ALL examples/test_powermeter.cc)
+target_link_libraries(test_pm PUBLIC LaserControl)

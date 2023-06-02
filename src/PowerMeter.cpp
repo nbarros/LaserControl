@@ -9,6 +9,8 @@
 #include <utilities.hh>
 #include <iostream>
 #include <sstream>
+#include <thread>
+#include <chrono>
 
 namespace device {
 
@@ -25,6 +27,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
   // override the prefix
   m_com_pre = "$";
   m_com_sfx = "\n\r";
+  m_read_sfx= "\r\n";
 
   // initialize the serial connection
   m_serial.setPort(m_comport);
@@ -956,6 +959,8 @@ void PowerMeter::send_cmd(const std::string cmd, std::string &resp)
   std::cout << "PowerMeter::send_cmd : Sending query [" << cmd << "]" << std::endl;
 #endif
   write_cmd(cmd);
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(100));
   read_cmd(resp);
   //resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG

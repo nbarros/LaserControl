@@ -63,15 +63,38 @@ namespace device
 
   void Device::read_cmd(std::string &answer)
   {
-    size_t nbytes = m_serial.readline(answer,0xFFFF,m_com_sfx);
+    //m_serial.waitReadable()
+    size_t nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
     // one should remove the chars
 #ifdef DEBUG
     std::cout << "Device::read_cmd : Received " << nbytes << " bytes answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
 
     // trim the suffix chars
-    answer.erase(answer.size()-m_com_sfx.size());
+    answer.erase(answer.size()-m_read_sfx.size());
   }
 
+
+  void Device::set_timeout_ms(uint32_t t)
+  {
+    serial::Timeout to = serial::Timeout::simpleTimeout(t);
+  m_serial.setTimeout(to);
+
+  #ifdef DEBUG
+    std::cout << "Device::set_timeout_ms : Setting timeout to [" << t << "] ms" << std::endl;
+  #endif
+
+  }
+
+  void Device::read_lines(std::vector<std::string> &lines)
+  {
+    // wait for the port to be ready
+    //size_t nbytes = 0;
+    lines = m_serial.readlines(0xFFFF,m_read_sfx);
+  #ifdef DEBUG
+    std::cout << "Device::read_lines : Received " << lines.size() << " strings" << std::endl;
+  #endif
+
+  }
 
 } /* namespace device */

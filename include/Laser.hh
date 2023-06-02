@@ -127,11 +127,9 @@ public:
   void set_qswitch(uint32_t qs);
 
 
-  void set_timeout_ms(uint32_t t);
+  //void set_timeout_ms(uint32_t t);
 
-  void set_read_suffix(const std::string sfx) {m_read_sfx = sfx;}
-
-  void read_lines(std::vector<std::string> &lines);
+  //void set_read_suffix(const std::string sfx) {m_read_sfx = sfx;}
 
   //void set_wait_read(bool v) {m_wait_read = v;}
 private:
@@ -158,7 +156,7 @@ private:
   uint32_t m_qswitch;
 
   std::map<std::string,std::string> m_sec_map;
-  std::string m_read_sfx;
+  //std::string m_read_sfx;
   bool m_wait_read;
 
 };

@@ -32,6 +32,11 @@ namespace device
 
     void set_com_prefix(const std::string pre) {m_com_pre = pre;}
     void set_com_suffix(const std::string suf) {m_com_sfx = suf;}
+    void set_read_suffix(const std::string suf) {m_read_sfx = suf;}
+
+
+    void read_lines(std::vector<std::string> &lines);
+    void set_timeout_ms(uint32_t t);
 
   protected:
     /// local member declaration
@@ -45,7 +50,8 @@ namespace device
 
     std::string m_com_pre;
     std::string m_com_sfx;
-
+    std::string m_read_sfx;
+    //
     uint32_t m_timeout_ms;
     serial::Serial m_serial;
 

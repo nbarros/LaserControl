@@ -196,7 +196,7 @@ void test_attenuator(const char*sn)
 void test_power_meter(const char*sn)
 {
   const char*label = "power_meter";
-  cout << log(label) <<"Testing powermeter. Expect it to be in /dev/ttyUSB1" << endl;
+  cout << log(label) <<"Testing powermeter." << endl;
   std::string port = util::find_port(sn);
   if (port.size() == 0)
   {
@@ -206,10 +206,6 @@ void test_power_meter(const char*sn)
   else
   {
     cout << log(label)<< "Found port " << port << endl;
-  }
-  if (port != "/dev/ttyUSB1")
-  {
-    cout << log(label) << "Was expecting a different port (/dev/ttyUSB1 <>" << port << ")" << endl;
   }
 
   device::PowerMeter *m_pm = nullptr;

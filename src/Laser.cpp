@@ -29,6 +29,7 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   m_wait_read(false)
 {
 
+  // this is the really messed up truth...the real termination char is the \n
   m_read_sfx = m_com_sfx;
   // -- change the timeout to something smaller
   // 50 ms?
@@ -200,14 +201,25 @@ void Laser::get_shot_count(uint32_t &count)
 
    write_cmd(cmd);
    std::string resp;
-   read_cmd(resp);
+   //read_cmd(resp);
+
+   std::vector<std::string> lines;
+   read_lines(lines);
+
+#ifdef DEBUG
+  std::cout << "Laser::security : Received [" << lines.size() << "] answer tokens" << std::endl;
+#endif
+  // the second is the answer
+  resp = lines.at(1);
+  resp.erase(resp.size()-1);
+
 
    //   std::string resp = m_serial.readline(0xFFFF,m_com_sfx);
-   resp.erase(resp.size()-1);
-#ifdef DEBUG
-   std::cout << "Laser::get_shot_count : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
-#endif
-   resp = resp.substr(cmd.size()+1); // drop the echoed command
+   //resp.erase(resp.size()-1);
+//#ifdef DEBUG
+//   std::cout << "Laser::get_shot_count : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+//#endif
+//   resp = resp.substr(cmd.size()+1); // drop the echoed command
 #ifdef DEBUG
    std::cout << "Laser::get_shot_count : Trimmed [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -272,18 +284,27 @@ Table 6 below.
   std::string cmd = "SE";
   std::string resp;
   write_cmd(cmd);
-  std::this_thread::sleep_for(std::chrono::seconds(1));
 
-  read_cmd(resp);
+  std::vector<std::string> lines;
+  read_lines(lines);
+  // expect 2 answers
+#ifdef DEBUG
+  std::cout << "Laser::security : Received [" << lines.size() << "] answer tokens" << std::endl;
+#endif
+  // the second is the answer
+  resp = lines.at(1);
+  resp.erase(resp.size()-1);
+  //read_cmd(resp);
 
 #ifdef DEBUG
    std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-   resp = resp.substr(cmd.size()+1);
-   resp.erase(resp.size()-1);
-#ifdef DEBUG
-   std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
-#endif
+   // get rid of the echoed command (plus termination)
+   //resp = resp.substr(cmd.size()+1);
+   //resp.erase(resp.size()-1);
+//#ifdef DEBUG
+//   std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+//#endif
    code = resp;
 }
 
@@ -328,7 +349,7 @@ void Laser::write_cmd(const std::string cmd)
   Device::write_cmd(cmd);
   // attenuator instruction on page 31 say that we need to
   // add an interval of 50ms between commands
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 }
 
@@ -346,10 +367,12 @@ void Laser::read_cmd(std::string &answer)
   #endif
     }
   }
+  // Need to read it twice...the first to get the echo command, and the second to get the answer
   nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
 #ifdef DEBUG
   std::cout << "Laser::read_cmd : Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
+
   answer.erase(answer.size()-m_read_sfx.length());
 
 #ifdef DEBUG
@@ -372,7 +395,7 @@ m_serial.setTimeout(to);
 void Laser::read_lines(std::vector<std::string> &lines)
 {
   // wait for the port to be ready
-  size_t nbytes = 0;
+  //size_t nbytes = 0;
   lines = m_serial.readlines(0xFFFF,m_read_sfx);
 #ifdef DEBUG
   std::cout << "Laser::read_lines : Received " << lines.size() << " strings" << std::endl;

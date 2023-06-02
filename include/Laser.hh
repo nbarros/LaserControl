@@ -133,7 +133,7 @@ public:
 
   void read_lines(std::vector<std::string> &lines);
 
-  void set_wait_read(bool v) {m_wait_read = v;}
+  //void set_wait_read(bool v) {m_wait_read = v;}
 private:
 
   void write_cmd(const std::string cmd);

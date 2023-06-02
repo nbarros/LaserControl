@@ -38,7 +38,7 @@ Energy meter cable info: (/dev/ttyUSB1, FTDI FT232R USB UART A9JR8MJT, USB VID:P
 void test_laser(const char*sn)
 {
   const char*label = "laser:: ";
-  cout << log(label) <<"Testing laser. Expect it to be in /dev/ttyUSB2" << endl;
+  cout << log(label) <<"Testing laser." << endl;
   std::string port = util::find_port(sn);
   if (port.size() == 0)
   {
@@ -49,10 +49,6 @@ void test_laser(const char*sn)
   {
     cout << log(label)<< "Found port " << port << endl;
   }
-  if (port != "/dev/ttyUSB2")
-  {
-    cout << log(label) << "Was expecting a different port (/dev/ttyUSB2 <>" << port << ")" << endl;
-  }
 
   device::Laser *m_laser = nullptr;
   uint32_t baud_rate = 9600;
@@ -60,6 +56,7 @@ void test_laser(const char*sn)
   try
   {
     m_laser = new device::Laser(port.c_str(),baud_rate);
+    m_laser->set_timeout_ms(100);
 
     // this laser sucks. How are we going to figure out that we are operating properly?
     // we have access to nothing in its processor.

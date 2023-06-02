@@ -27,11 +27,12 @@ using std::string;
 #define log(m) log_msg("INFO",m,"")
 
 
-void test_powermeter(uint32_t timeout, std::string read_suffix)
+void test_powermeter(uint32_t timeout, std::string read_suffix, std::string write_suffix)
 {
   const char *label = "power:: ";
   cout << log(label) << "Runnig the tests with read suffix [" << util::escape(read_suffix.c_str()) << "]"
-                    << " and timeout [" << timeout << "] ms" << endl;
+      << ", write suffix [" <<     util::escape(write_suffix.c_str())  << "] "
+      << " and timeout [" << timeout << "] ms" << endl;
 
 
   const char*sn = "A9JR8MJT";
@@ -60,6 +61,11 @@ void test_powermeter(uint32_t timeout, std::string read_suffix)
     {
       cout << log(label)<< "Setting the read suffix..." << endl;
       m_pm->set_read_suffix(read_suffix);
+    }
+    if (write_suffix.size() != 0)
+    {
+      cout << log(label)<< "Setting the write suffix..." << endl;
+      m_pm->set_com_suffix(write_suffix);
     }
     if (timeout != 0)
     {
@@ -206,11 +212,17 @@ int main(int argc, char**argv)
   // connect to it and query something
 
 
-  cout <<"\n\n Testing with a 200 ms timeout and \\n\\r read termination\n\n" << endl;
-  test_powermeter(200,"\n\r");
+  cout <<"\n\n Testing with a 200 ms timeout and (\\n\\r,\\n\\r)  termination\n\n" << endl;
+  test_powermeter(200,"\n\r","\n\r");
 
-  cout <<"\n\n Testing with a 200 ms timeout and \\r\\n read termination\n\n" << endl;
-  test_powermeter(200,"\r\n");
+  cout <<"\n\n Testing with a 200 ms timeout and (\\n\\r,\\r\\n)  termination\n\n" << endl;
+  test_powermeter(200,"\n\r","\r\n");
+
+  cout <<"\n\n Testing with a 200 ms timeout and (\\r\\n,\\r\\n)  termination\n\n" << endl;
+  test_powermeter(200,"\r\n","\r\n");
+
+  cout <<"\n\n Testing with a 200 ms timeout and (\\r\\n,\\n\\r)  termination\n\n" << endl;
+  test_powermeter(200,"\r\n","\n\r");
 
 
   return 0;

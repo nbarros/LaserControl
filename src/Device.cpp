@@ -47,8 +47,9 @@ namespace device
   {
     // drop any input that may be pending
     m_serial.flushInput();
+    m_serial.flushOutput();
     // first flush any pending buffers
-    m_serial.flush();
+    //m_serial.flush();
 
     std::string msg = m_com_pre + cmd + m_com_sfx;
 #ifdef DEBUG

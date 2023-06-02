@@ -134,17 +134,17 @@ int main(int argc, char**argv)
 
   ///dev/ttyUSB2, FTDI USB Serial Converter FTC7LJXH, USB VID:PID=0403:6001 SNR=FTC7LJXH
 
-  cout <<"\n\n Testing with a 200 ms timeout and \\r read termination\n\n" << endl;
-  test_laser(200,"\r");
-
   cout <<"\n\n Testing with a 200 ms timeout and \\n read termination\n\n" << endl;
   test_laser(200,"\n");
 
-  cout <<"\n\n Testing with a 200 ms timeout and \\r\\n read termination\n\n" << endl;
-  test_laser(200,"\r\n");
-
   cout <<"\n\n Testing with NO timeout and \\n read termination\n\n" << endl;
   test_laser(0,"\n");
+
+  cout <<"\n\n Testing with a 200 ms timeout and \\r read termination\n\n" << endl;
+  test_laser(200,"\r");
+
+  cout <<"\n\n Testing with a 200 ms timeout and \\r\\n read termination\n\n" << endl;
+  test_laser(200,"\r\n");
 
   cout <<"\n\n Testing with NO timeout and \\r read termination\n\n" << endl;
   test_laser(0,"\r");

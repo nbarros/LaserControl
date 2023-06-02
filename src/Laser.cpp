@@ -199,11 +199,17 @@ void Laser::get_shot_count(uint32_t &count)
   std::string cmd = "SC";
 
    write_cmd(cmd);
+   std::string resp;
+   read_cmd(resp);
 
-   std::string resp = m_serial.readline(0xFFFF,m_com_sfx);
+   //   std::string resp = m_serial.readline(0xFFFF,m_com_sfx);
    resp.erase(resp.size()-1);
 #ifdef DEBUG
    std::cout << "Laser::get_shot_count : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
+   resp = resp.substr(cmd.size()+1); // drop the echoed command
+#ifdef DEBUG
+   std::cout << "Laser::get_shot_count : Trimmed [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
    // according to the python script, the answer we want is in the bytes [3:11]
    count = stoul(resp); // 9 is the max length
@@ -273,7 +279,11 @@ Table 6 below.
 #ifdef DEBUG
    std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-
+   resp = resp.substr(cmd.size()+1);
+   resp.erase(resp.size()-1);
+#ifdef DEBUG
+   std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
    code = resp;
 }
 

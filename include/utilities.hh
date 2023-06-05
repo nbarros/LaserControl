@@ -18,6 +18,7 @@ namespace util {
 void tokenize_string(std::string &str, std::vector<std::string> &tokens, std::string sep = ";");
 
 std::string escape(const char* src);
+std::string escape(const std::string src);
 
 std::string escape(const char* src, const std::set<char> escapee, const char marker);
 

@@ -138,7 +138,7 @@ void test_powermeter(uint32_t timeout, std::string read_suffix, std::string writ
 
       // get pulse widths
       std::map<uint16_t,std::string> umap;
-      cout<< log(label) << "Checking pulse options" << endl;
+      cout<< log(label) << "Checking pulse width options" << endl;
       m_pm->pulse_length(0, current);
       m_pm->get_pulse_map(umap);
       cout << log(label)<< "Current pulse width [" << current << "]" << endl;
@@ -212,17 +212,17 @@ int main(int argc, char**argv)
   // connect to it and query something
 
 
-  cout <<"\n\n Testing with a 500 ms timeout and (\\n\\r,\\n\\r)  termination\n\n" << endl;
-  test_powermeter(500,"\n\r","\n\r");
+//  cout <<"\n\n Testing with a 500 ms timeout and (\\n\\r,\\n\\r)  termination\n\n" << endl;
+//  test_powermeter(500,"\n\r","\n\r");
+//
+//  cout <<"\n\n Testing with a 500 ms timeout and (\\n\\r,\\r\\n)  termination\n\n" << endl;
+//  test_powermeter(500,"\n\r","\r\n");
 
-  cout <<"\n\n Testing with a 500 ms timeout and (\\n\\r,\\r\\n)  termination\n\n" << endl;
-  test_powermeter(500,"\n\r","\r\n");
-
-  cout <<"\n\n Testing with a 500 ms timeout and (\\r\\n,\\r\\n)  termination\n\n" << endl;
-  test_powermeter(500,"\r\n","\r\n");
-
-  cout <<"\n\n Testing with a 500 ms timeout and (\\r\\n,\\n\\r)  termination\n\n" << endl;
-  test_powermeter(500,"\r\n","\n\r");
+  cout <<"\n\n Testing with a 100 ms timeout and (\\r\\n,\\r\\n)  termination\n\n" << endl;
+  test_powermeter(100,"\r\n","\r\n");
+//
+//  cout <<"\n\n Testing with a 500 ms timeout and (\\r\\n,\\n\\r)  termination\n\n" << endl;
+//  test_powermeter(500,"\r\n","\n\r");
 
 
   return 0;

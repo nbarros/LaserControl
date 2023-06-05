@@ -262,14 +262,18 @@ void PowerMeter::get_all_ranges(int16_t &current_setting)
   std::cout << "PowerMeter::get_all_ranges : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // strip the first two bytes, as it indicates whether the command failed or not and in this case it does not matter
-  resp = resp.substr(2);
-
+  resp = resp.substr(1);
+  // NOTE:There is no space after the first token in this command
   // now we want to tokenize the returned string and set the map
   std::vector<std::string> tokens;
   util::tokenize_string(resp, tokens, " ");
 
 #ifdef DEBUG
   std::cout << "PowerMeter::get_all_ranges : Found " << tokens.size() << " entries" << std::endl;
+  for (auto t: tokens)
+  {
+    std::cout << "[" << t << "]" << std::endl;
+  }
 #endif
 
   // however the first token is the current setting

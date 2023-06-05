@@ -15,7 +15,15 @@
 
 namespace util {
 
+const std::string WHITESPACE = " \n\r\t\f\v";
+
 void tokenize_string(std::string &str, std::vector<std::string> &tokens, std::string sep = ";");
+
+std::string ltrim(const std::string &s);
+
+std::string rtrim(const std::string &s);
+
+std::string trim(const std::string &s);
 
 std::string escape(const char* src);
 std::string escape(const std::string src);

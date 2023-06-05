@@ -28,6 +28,8 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
   m_com_pre = "$";
   m_com_sfx = "\r\n";
   m_read_sfx= "\r\n";
+  // initialize to something unrealistic
+  m_threshold_ranges = {0xFFFF,0xFFFF};
 
   // initialize the serial connection
   m_serial.setPort(m_comport);
@@ -207,6 +209,8 @@ void PowerMeter::average_query(const AQSetting q, AQSetting &answer)
   answer = static_cast<AQSetting>(aa);
 }
 
+// typical answer
+// [* 1      NONE 0.5sec   1sec   3sec  10sec  30sec \r\n]
 void PowerMeter::average_query(const uint16_t q, uint16_t &a)
 {
   std::ostringstream cmd;
@@ -216,14 +220,9 @@ void PowerMeter::average_query(const uint16_t q, uint16_t &a)
   std::cout << "PowerMeter::set_average_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
   send_cmd(cmd.str(),resp);
-  //  write_cmd(cmd.str());
-  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
   std::cout << "PowerMeter::get_average_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-  // strip the first byte, as it indicates whether the command failed or not
-//  char s= resp.at(0);
-//  success = (s == '*')?true:false;
   // the third byte is the setting that is still in place
   a = std::stoul(resp.substr(2,1)) & 0xFFFF;
 
@@ -233,7 +232,7 @@ void PowerMeter::average_query(const uint16_t q, uint16_t &a)
 #ifdef DEBUG
   std::cout << "PowerMeter::set_average_query : got answer [" << resp << "]" << std::endl;
 #endif
-    // the first option is going to be AUTO.search for it
+    // the first option is going to be NONE.search for it
     size_t p = resp.find("NONE");
     std::string range = resp.substr(p);
     std::vector<std::string> tokens;
@@ -242,12 +241,19 @@ void PowerMeter::average_query(const uint16_t q, uint16_t &a)
     uint16_t k = 1;
     for (std::string t : tokens)
     {
-      m_ave_windows.insert({k,t});
-      k++;
+      t = util::trim(t); // trim leading and trailing chars
+      // only non-empty tokens are added
+      if (t.size())
+      {
+        m_ave_windows.insert({k,t});
+        k++;
+      }
     }
   }
 }
 
+// typical answer
+// [*4 10.0J 2.00J 200mJ 20.0mJ 2.00mJ \r\n]
 void PowerMeter::get_all_ranges(int16_t &current_setting)
 {
   std::string cmd = "AR";
@@ -266,6 +272,7 @@ void PowerMeter::get_all_ranges(int16_t &current_setting)
   // NOTE:There is no space after the first token in this command
   // now we want to tokenize the returned string and set the map
   std::vector<std::string> tokens;
+  resp = util::trim(resp); // trim leading and trailing whitespaces
   util::tokenize_string(resp, tokens, " ");
 
 #ifdef DEBUG
@@ -286,7 +293,7 @@ void PowerMeter::get_all_ranges(int16_t &current_setting)
   // now clear the map
   m_ranges.clear();
   // the first token should be "AUTO"
-  int counter = -1;
+  int counter = 0;
   for (std::string entry: tokens)
   {
 #ifdef DEBUG
@@ -331,6 +338,8 @@ void PowerMeter::get_all_wavelengths(uint16_t &current_setting)
 */
 }
 
+// from experience, the answer is like
+// [*CONTINUOUS 190 3000 1 266 355 532 1064 2100 2940 \r\n]
 void PowerMeter::get_all_wavelengths(std::string &answer)
 {
   std::string cmd = "AW";
@@ -473,7 +482,8 @@ void PowerMeter::energy_ready(bool &new_val)
   new_val = (std::stol(resp.substr(1)) == 0)?false:true;
 }
 
-//FIXME: Confirm the settings (mismatch between documentation and slow control spreadsheet)
+//Note: This is *NOT* the method you want to use
+// You want to use UT
 void PowerMeter::energy_threshold(const uint32_t et, uint32_t &answer)
 {
   std::ostringstream cmd;
@@ -518,8 +528,6 @@ void PowerMeter::force_power(bool &success)
   std::cout << "PowerMeter::force_power : Sending query [" << cmd << "]" << std::endl;
 #endif
   send_cmd(cmd,resp);
-  //  write_cmd(cmd);
-  //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
   std::cout << "PowerMeter::force_power : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -535,9 +543,6 @@ void PowerMeter::filter_query(const DiffuserSetting s, DiffuserSetting &answer)
 #endif
   std::string resp;
   send_cmd(cmd.str(),resp);
-  //  write_cmd(cmd.str());
-  //  read_cmd()
-  //= m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
   std::cout << "PowerMeter::filter_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -570,9 +575,6 @@ void PowerMeter::force_exposure(bool &success)
   std::cout << "PowerMeter::force_exposure : Sending query [" << cmd << "]" << std::endl;
 #endif
   send_cmd(cmd,resp);
-  //  write_cmd(cmd);
-  //  read_cmd(resp);
-  //= m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
   std::cout << "PowerMeter::force_exposure : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -587,13 +589,9 @@ void PowerMeter::head_info_raw(std::string &answer)
   std::cout << "PowerMeter::head_info_raw : Sending query [" << cmd << "]" << std::endl;
 #endif
   send_cmd(cmd,answer);
-  //  write_cmd(cmd);
-  //  read_cmd(answer);
-  //std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
   std::cout << "PowerMeter::head_info_raw : got answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
-  //answer = resp;
 }
 
 
@@ -601,6 +599,8 @@ void PowerMeter::head_info(std::string &type, std::string &sn, std::string &name
 {
   std::string rr;
   head_info_raw(rr);
+  // get rid of trailing and leading whitespace
+  rr = util::trim(rr);
   // tokenize it and get rid of first entry
   std::vector<std::string> tokens;
   util::tokenize_string(rr, tokens, " ");
@@ -653,6 +653,7 @@ void PowerMeter::inst_info(std::string &id, std::string &sn, std::string &name)
 {
   std::string rr;
   send_cmd("II",rr);
+  rr = util::trim(rr);
 #ifdef DEBUG
   std::cout << "PowerMeter::inst_info : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -690,7 +691,6 @@ void PowerMeter::mains_frequency(uint16_t q, uint16_t &answer)
   std::cout << "PowerMeter::mains_frequency : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   answer = std::stoul(resp.substr(2,1)) & 0xFFFF;
-  //static_cast<MainsFreq>(std::stoi(resp.substr(2,1)));
 }
 
 
@@ -721,6 +721,7 @@ void PowerMeter::measurement_mode(const uint16_t q, uint16_t &a)
 
   msg << "MM " << q;
   send_cmd(msg.str(),resp);
+  resp = util::trim(resp);
 #ifdef DEBUG
   std::cout << "PowerMeter::measurement_mode : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -750,6 +751,8 @@ void PowerMeter::measurement_mode(const uint16_t q, uint16_t &a)
   }
 }
 
+// typical answer
+// [*1 1.0ms 2.0ms 5.0ms 10ms 20ms \r\n]
 void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
 {
   std::ostringstream msg;
@@ -760,8 +763,7 @@ void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
 #ifdef DEBUG
   std::cout << "PowerMeter::pulse_length : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-  // Another silly command. The answer varies wildly depending on the setting
-  if (value == 0)
+   if (value == 0)
   {
     // we were querying current setting. All we care about is
     // the second byte
@@ -771,6 +773,9 @@ void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
     if (m_pulse_lengths.size() == 0)
     {
       resp= resp.substr(2);
+      // next trim leading and trailing spaces
+      resp = util::trim(resp);
+
 #ifdef DEBUG
   std::cout << "PowerMeter::pulse_length : string to tokenize : [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -971,6 +976,14 @@ void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)
   answer = std::stoul(tokens.at(0)) & 0xFFFF;
   m_e_threshold = answer;
 
+  if (m_threshold_ranges.second == 0xFFFF)
+  {
+    // it has not been set yet
+    uint16_t min = std::stoul(tokens.at(1)) & 0xFFFF;
+    m_threshold_ranges.first = min;
+    uint16_t  max = std::stoul(tokens.at(2)) & 0xFFFF;
+    m_threshold_ranges.second = max;
+  }
 }
 
 void PowerMeter::query_user_threshold(uint16_t &current, uint16_t &min, uint16_t &max)

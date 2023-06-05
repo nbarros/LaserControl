@@ -296,6 +296,7 @@ public:
   //void set_measurement_mode(const uint16_t mode);
   void get_pulse_map(std::map<uint16_t,std::string> &r) {r = m_pulse_lengths;}
   void get_averages_map(std::map<uint16_t,std::string> &r) {r = m_ave_windows;}
+  const std::pair<uint16_t, uint16_t> get_threshold_ranges() const {return m_threshold_ranges;}
 
 private:
 

@@ -179,6 +179,23 @@ void test_powermeter(uint32_t timeout, std::string read_suffix, std::string writ
       cout << log(label) << "Answer : " << u32 << endl;
 
 
+      cout << "==========================================================" << endl;
+      cout << "Dumping the collected maps :\n" << endl;
+      std::map<int16_t,std::string> ranges;
+      m_pm->get_range_map(ranges);
+      cout << "RANGE : " << util::serialize_map(ranges) << endl;
+
+      std::map<uint16_t,std::string> pulses;
+      m_pm->get_pulse_map(pulses);
+      cout << "PULSE WIDTHS : " << util::serialize_map(pulses) << endl;
+
+      m_pm->get_averages_map(pulses);
+      cout << "AVERAGES : " << util::serialize_map(pulses) << endl;
+
+      std::pair<uint16_t, uint16_t> th = m_pm->get_threshold_ranges();
+      cout << "TRESHOLDS : [ " << th.first << "," << th.second << "]" << endl;
+
+
       cout << log(label)<< "All done. Can't test anything else without actually changing settings.\n\n\n\n" << endl;
     }
     catch(serial::PortNotOpenedException &e)

@@ -16,74 +16,69 @@
 using std::cout;
 using std::endl;
 using std::string;
-/*
-void test_laser(const std::string port)
+
+void test_pm1()
 {
+  std::string answer="* PY 967321 PE50BF-DFH-C 80608003 \r\n";
+  answer.erase(answer.size()-2);
+  std::vector<std::string> tokens;
+  util::tokenize_string(answer, tokens, " ");
+  tokens.erase(tokens.begin());
+  for (auto t:tokens)
+  {
+    cout << t << endl;
+  }
+  std::string type = tokens.at(0);
+  std::string sn = tokens.at(1);
+  std::string name = tokens.at(2);
+  uint32_t word = std::stoul(tokens.at(3),0, 16);
 
-  std::string str;
-  try
-  {
-    device::Laser *m_dev = new device::Laser(port.c_str(),9600);
-    m_dev->set_timeout(1000);
+  bool power = word & (1 << 0);
+    // energy is bit 1
+  bool energy = word & (1 << 0);
+    // frequency is bit 31
+  bool freq = word & (1 << 31);
 
-    // prefix "" suffix:"\n"
-    cout << "Testing prefix [] suffix [\\n]" << endl;
-    m_dev->set_com_prefix("");
-    m_dev->set_com_suffix("\n");
-    // -- set a large timeout
-    m_dev->security(str);
-    cout << "Received answer [" << str << "]" << endl;
-  }
-  catch(serial::SerialException &e)
-  {
-    cout << "Caught serial exception " << e.what() << endl;
-  }
-  catch(std::exception &e)
-  {
-    cout << "Caught STL exception " << e.what() << endl;
-  }
-  catch(...)
-  {
-    cout << "Caught unknown exception " << endl;
-  }
 }
-*/
+
 int main(int argc, char**argv)
 {
 
-  std::string stat="pc1;0;0;0;59000;114;36;114;2;1;0;0;0;0;0;0;1;1;0;0;0;0;0;0;\n\r";
-  std::string escaped = util::escape(stat.c_str(), {'"','\n','\t','\r'}, '\\');
-  stat.erase(stat.size()-2);
-  stat = stat.substr(2);
+  test_pm1();
 
-  cout << "Raw [" << stat << "]" << endl;
-  cout << "Escaped [" << util::escape(stat.c_str()) << "]" << endl;
-
-  std::vector<std::string> tokens;
-  util::tokenize_string(stat, tokens);
-
-  int arg1 = std::stol(tokens.at(0));
-  int arg2 = std::stol(tokens.at(1));
-
-  for (auto e : tokens)
-  {
-    cout << "[" << e << "]" << endl;
-  }
-
-  uint16_t arg3 = std::stoul(tokens.at(2)) & 0xFF;
-  uint16_t arg4 = std::stoul(tokens.at(3)) & 0xFF;
-  uint16_t arg5 = std::stoul(tokens.at(4));
-
-  uint16_t arg6 = std::stoul(tokens.at(5)) & 0xFF;
-  uint16_t arg7 = std::stoul(tokens.at(6)) & 0xFF;
-
-  uint16_t arg9 = std::stoul(tokens.at(8)) & 0xFF;
-  uint16_t arg10 = std::stoul(tokens.at(9)) & 0xFF;
-
-  uint16_t arg12 = std::stoul(tokens.at(11)) & 0xFF;
-  uint16_t arg13 = std::stoul(tokens.at(12)) & 0xFF;
-
-
+//  std::string stat="pc1;0;0;0;59000;114;36;114;2;1;0;0;0;0;0;0;1;1;0;0;0;0;0;0;\n\r";
+//  std::string escaped = util::escape(stat.c_str(), {'"','\n','\t','\r'}, '\\');
+//  stat.erase(stat.size()-2);
+//  stat = stat.substr(2);
+//
+//  cout << "Raw [" << stat << "]" << endl;
+//  cout << "Escaped [" << util::escape(stat.c_str()) << "]" << endl;
+//
+//  std::vector<std::string> tokens;
+//  util::tokenize_string(stat, tokens);
+//
+//  int arg1 = std::stol(tokens.at(0));
+//  int arg2 = std::stol(tokens.at(1));
+//
+//  for (auto e : tokens)
+//  {
+//    cout << "[" << e << "]" << endl;
+//  }
+//
+//  uint16_t arg3 = std::stoul(tokens.at(2)) & 0xFF;
+//  uint16_t arg4 = std::stoul(tokens.at(3)) & 0xFF;
+//  uint16_t arg5 = std::stoul(tokens.at(4));
+//
+//  uint16_t arg6 = std::stoul(tokens.at(5)) & 0xFF;
+//  uint16_t arg7 = std::stoul(tokens.at(6)) & 0xFF;
+//
+//  uint16_t arg9 = std::stoul(tokens.at(8)) & 0xFF;
+//  uint16_t arg10 = std::stoul(tokens.at(9)) & 0xFF;
+//
+//  uint16_t arg12 = std::stoul(tokens.at(11)) & 0xFF;
+//  uint16_t arg13 = std::stoul(tokens.at(12)) & 0xFF;
+//
+//
 //  std::string str = "o0;4000\n\r";
 //  std::string escaped = util::escape(str.c_str(), {'"','\n','\t','\r'}, '\\');
 //

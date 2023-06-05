@@ -172,6 +172,7 @@ public:
   //MA
   // Mains frequency
   void mains_frequency(MainsFreq q, MainsFreq &answer);
+  void mains_frequency(uint16_t q, uint16_t &answer);
 
   // MF
   // Queries the device for maximum pulse frequency at which the sensor can sample the

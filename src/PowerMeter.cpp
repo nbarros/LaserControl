@@ -604,7 +604,7 @@ void PowerMeter::head_info(std::string &type, std::string &sn, std::string &name
   type = tokens.at(0);
   sn = tokens.at(1);
   name = tokens.at(2);
-  int word = std::stoi(tokens.at(3),0, 16);
+  uint32_t word = std::stoul(tokens.at(3),0, 16);
 
   // power is bit 0
   power = word & (1 << 0);
@@ -612,12 +612,26 @@ void PowerMeter::head_info(std::string &type, std::string &sn, std::string &name
   energy = word & (1 << 0);
   // frequency is bit 31
   freq = word & (1 << 31);
+
+#ifdef DEBUG
+  std::cout << "PowerMeter::head_info : \n"
+          << "Type   : " << type
+          << "\nSN     : " << sn
+          << "\nname   : " << name
+          << "\npower  : " << power
+          << "\nenergy : " << energy
+          << "\nfreq   : " << freq << std::endl;
+#endif
+
 }
 
 void PowerMeter::head_type(std::string &type)
 {
   std::string resp;
   send_cmd("HT",resp);
+#ifdef DEBUG
+  std::cout << "PowerMeter::head_type : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
   type = resp.substr(1);
 }
 
@@ -625,6 +639,9 @@ void PowerMeter::inst_config(bool &success)
 {
   std::string resp;
   send_cmd("IC",resp);
+#ifdef DEBUG
+  std::cout << "PowerMeter::inst_config : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
   success = (resp.at(0) == '?')?false:true;
 }
 
@@ -632,6 +649,9 @@ void PowerMeter::inst_info(std::string &id, std::string &sn, std::string &name)
 {
   std::string rr;
   send_cmd("II",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::inst_info : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // tokenize it and get rid of first entry
   std::vector<std::string> tokens;
   util::tokenize_string(rr, tokens, " ");
@@ -640,21 +660,44 @@ void PowerMeter::inst_info(std::string &id, std::string &sn, std::string &name)
   id = tokens.at(0);
   sn = tokens.at(1);
   name = tokens.at(2);
+#ifdef DEBUG
+  std::cout << "PowerMeter::inst_info : \n"
+          << "ID      : " << id
+          << "\nSN     : " << sn
+          << "\nname   : " << name << std::endl;
+#endif
+
 }
 
 void PowerMeter::mains_frequency(MainsFreq q, MainsFreq &answer)
 {
+  uint16_t a;
+  mains_frequency(static_cast<uint16_t>(q),a);
+  answer = static_cast<MainsFreq>(a);
+}
+
+void PowerMeter::mains_frequency(uint16_t q, uint16_t &answer)
+{
   std::ostringstream msg;
   std::string resp;
-  msg << "MA " << static_cast<int>(q);
+  msg << "MA " << q;
   send_cmd(msg.str(),resp);
-  answer = static_cast<MainsFreq>(std::stoi(resp.substr(2,1)));
+#ifdef DEBUG
+  std::cout << "PowerMeter::mains_frequency : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
+  answer = std::stoul(resp.substr(2,1)) & 0xFFFF;
+  //static_cast<MainsFreq>(std::stoi(resp.substr(2,1)));
 }
+
 
 void PowerMeter::max_freq(uint32_t &value)
 {
   std::string rr;
   send_cmd("MF",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::max_freq : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
+
   value = std::stoul(rr.substr(1));
 }
 
@@ -674,6 +717,10 @@ void PowerMeter::measurement_mode(const uint16_t q, uint16_t &a)
 
   msg << "MM " << q;
   send_cmd(msg.str(),resp);
+#ifdef DEBUG
+  std::cout << "PowerMeter::measurement_mode : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
+
   // this command is silly. The answer varies wildly depending on the setting
   if (q == 0)
   {
@@ -692,6 +739,8 @@ void PowerMeter::measurement_mode(const uint16_t q, uint16_t &a)
     {
       // failed
       // then query what is the current setting
+      // because the failed command does not return the current setting...
+      // why?!?!?! Don't know ¯\_(ツ)_/¯
       measurement_mode(0,a);
     }
   }
@@ -704,7 +753,10 @@ void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
 
   msg << "PL " << value;
   send_cmd(msg.str(),resp);
-  // this command is silly. The answer varies wildly depending on the setting
+#ifdef DEBUG
+  std::cout << "PowerMeter::pulse_length : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
+  // Another silly command. The answer varies wildly depending on the setting
   if (value == 0)
   {
     // we were querying current setting. All we care about is
@@ -716,7 +768,7 @@ void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
     {
       resp= resp.substr(2);
 #ifdef DEBUG
-  std::cout << "PowerMeter::pulse_length : string to tokenize : [" << resp << "]" << std::endl;
+  std::cout << "PowerMeter::pulse_length : string to tokenize : [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
       // tokenize it and get rid of first entry
@@ -727,7 +779,7 @@ void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
       for (std::string entry: tokens)
       {
 #ifdef DEBUG
-        std::cout << "PowerMeter::get_all_ranges : Adding entry [" << k << " : " << entry << "]" << std::endl;
+        std::cout << "PowerMeter::pulse_length : Adding entry [" << k << " : " << entry << "]" << std::endl;
 #endif
         m_pulse_lengths.insert({k,entry});
         k++;
@@ -753,13 +805,22 @@ void PowerMeter::pulse_length(const uint16_t value, uint16_t &answer)
 void PowerMeter::reset()
 {
   std::string rr;
+#ifdef DEBUG
+  std::cout << "PowerMeter::reset : Sendint a reset. This may lead to complete disconnect of the system" << std::endl;
+#endif
   send_cmd("RE",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::reset : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
 }
 
 void PowerMeter::get_range(int32_t &value)
 {
   std::string rr;
   send_cmd("RN",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::get_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // drop the first byte
   value = std::stoi(rr.substr(1));
 }
@@ -776,6 +837,9 @@ void PowerMeter::send_energy(double &value)
 {
   std::string rr;
   send_cmd("SE",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::send_energy : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // drop the first byte
   value = std::stod(rr.substr(1));
 }
@@ -784,6 +848,9 @@ void PowerMeter::send_frequency(double &value)
 {
   std::string rr;
   send_cmd("SF",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::send_frequency : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // drop the first byte
   value = std::stod(rr.substr(1));
 }
@@ -792,6 +859,9 @@ void PowerMeter::send_average(double &value)
 {
   std::string rr;
   send_cmd("SG",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::send_average : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // drop the first byte
   value = std::stod(rr.substr(1));
 }
@@ -800,6 +870,9 @@ void PowerMeter::send_units(char &unit)
 {
   std::string rr;
   send_cmd("SI",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::send_units : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // drop the first byte
   unit = rr.at(1);
 }
@@ -814,6 +887,9 @@ void PowerMeter::send_power(double &value)
 {
   std::string rr;
   send_cmd("SP",rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::send_power : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // drop the first byte
   value = std::stod(rr.substr(1));
 }
@@ -824,6 +900,9 @@ void PowerMeter::send_max(double &value)
   send_cmd("SX",rr);
   // drop the first byte
   rr = rr.substr(1);
+#ifdef DEBUG
+  std::cout << "PowerMeter::send_max : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // -- check if we are in auto mode
   if (rr == "AUTO")
   {
@@ -842,6 +921,9 @@ void PowerMeter::trigger_window(const uint16_t value, uint16_t &answer)
   cmd << "TW " << value;
   std::string rr;
   send_cmd(cmd.str(),rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::trigger_window : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // first strip the return byte
   rr = rr.substr(1);
   answer = std::stoul(rr) & 0xFFFF;
@@ -853,6 +935,9 @@ void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)
   cmd << "UT " << value;
   std::string rr;
   send_cmd(cmd.str(),rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::user_threshold : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // -- undocumented difference
   // out of range is answered with ?OUT OF RANGE
   if (rr.at(0) == '?')
@@ -861,7 +946,7 @@ void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)
     // either throw an exception or just return the answer of what setting it is right now
     answer = m_e_threshold;
 #ifdef DEBUG
-    std::cout << "Failed to set the threshold. Answer : [" << rr << "]" << std::endl;
+    std::cout << "PowerMeter::user_threshold : Failed to set the threshold. Answer : [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
     return;
   }
@@ -871,6 +956,14 @@ void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)
   // now tokenize the answer
   std::vector<std::string> tokens;
   util::tokenize_string(rr, tokens, " ");
+
+#ifdef DEBUG
+  std::cout << "PowerMeter::user_threshold : Tokens : " << std::endl;
+  for (auto t: tokens)
+  {
+    std::cout << t << std::endl;
+  }
+#endif
   answer = std::stoul(tokens.at(0)) & 0xFFFF;
   m_e_threshold = answer;
 
@@ -881,11 +974,22 @@ void PowerMeter::query_user_threshold(uint16_t &current, uint16_t &min, uint16_t
   std::string cmd = "UT";
   std::string rr;
   send_cmd(cmd,rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::query_user_threshold : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // first strip the return byte
   rr = rr.substr(1);
   // now tokenize the answer
   std::vector<std::string> tokens;
   util::tokenize_string(rr, tokens, " ");
+#ifdef DEBUG
+  std::cout << "PowerMeter::query_user_threshold : Tokens : " << std::endl;
+  for (auto t: tokens)
+  {
+    std::cout << t << std::endl;
+  }
+#endif
+
   current = std::stoul(tokens.at(0)) & 0xFFFF;
   m_e_threshold = current;
   min = std::stoul(tokens.at(1)) & 0xFFFF;
@@ -899,6 +1003,9 @@ void PowerMeter::version(std::string &value)
   std::string cmd = "VE";
   std::string rr;
   send_cmd(cmd,rr);
+#ifdef DEBUG
+  std::cout << "PowerMeter::version : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
   // first strip the return byte
   value = rr.substr(1);
 }
@@ -909,7 +1016,9 @@ void PowerMeter::wavelength_index(const uint16_t index, bool &success)
     cmd << "WI " << index;
     std::string rr;
     send_cmd(cmd.str(),rr);
-
+#ifdef DEBUG
+  std::cout << "PowerMeter::wavelength_index : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
     // first strip the return byte
     success=(rr.at(0)=='*')?true:false;
 
@@ -921,7 +1030,9 @@ void PowerMeter::wavelength(const uint16_t wl, bool &success)
     cmd << "WL " << wl;
     std::string rr;
     send_cmd(cmd.str(),rr);
-
+#ifdef DEBUG
+  std::cout << "PowerMeter::wavelength : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
     // first strip the return byte
     success=(rr.at(0)=='*')?true:false;
 }
@@ -932,10 +1043,11 @@ void PowerMeter::write_range(const int16_t range, bool &success)
     cmd << "WN " << range;
     std::string rr;
     send_cmd(cmd.str(),rr);
-
+#ifdef DEBUG
+  std::cout << "PowerMeter::write_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+#endif
     // first strip the return byte
     success=(rr.at(0)=='*')?true:false;
-
 }
 
 
@@ -960,9 +1072,8 @@ void PowerMeter::send_cmd(const std::string cmd, std::string &resp)
 #endif
   write_cmd(cmd);
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
   read_cmd(resp);
-  //resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
   std::cout << "PowerMeter::send_cmd : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif

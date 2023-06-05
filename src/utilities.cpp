@@ -37,6 +37,11 @@ int char2int(const char c)
 
 }
 
+std::string escape(const std::string src)
+{
+  return escape(src.c_str(),{'\n','\t','\r'},'\\');
+}
+
 std::string escape(const char* src)
 {
   return escape(src,{'\n','\t','\r'},'\\');

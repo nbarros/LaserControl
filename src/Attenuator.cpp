@@ -32,16 +32,20 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
   m_report_on_zero(false),
   m_serial_number("unknown")
   {
+  // -- the attenuator is weird, as the termination of the
+  // answers/reads is not the same as the
+  // termination of the writes. Had to overload the functions
+
   // open the serial port with a 1s timeout by default
   m_serial.setBaudrate(m_baud);
   m_serial.setPort(m_comport);
   m_serial.setBytesize(serial::eightbits);
   m_serial.setParity(serial::parity_none);
+  m_timeout_ms = 50;
   serial::Timeout t = serial::Timeout::simpleTimeout(m_timeout_ms);
   m_serial.setTimeout(t);
   m_serial.setStopbits(serial::stopbits_one);
   m_serial.open();
-
   if (!m_serial.isOpen())
   {
 #ifdef DEBUG
@@ -209,10 +213,11 @@ void Attenuator::set_resolution(const enum Resolution res)
   write_cmd(msg.str());
 }
 
-void Attenuator::set_idle_current(const uint8_t val)
+void Attenuator::set_idle_current(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "ws "<< static_cast<uint16_t>(val & 0xFF);
+  // note, only values up to 255 are accepted
+  msg << "ws "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_idle_current : Setting idle current to ["
       << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
@@ -221,10 +226,10 @@ void Attenuator::set_idle_current(const uint8_t val)
   m_current_idle = val;
 }
 
-void Attenuator::set_moving_current(const uint8_t val)
+void Attenuator::set_moving_current(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "wm "<< static_cast<uint16_t>(val & 0xFF);
+  msg << "wm "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_moving_current : Setting moving current to ["
       << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
@@ -233,10 +238,10 @@ void Attenuator::set_moving_current(const uint8_t val)
   m_current_move = val;
 }
 
-void Attenuator::set_acceleration(const uint8_t val)
+void Attenuator::set_acceleration(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "a "<< static_cast<uint16_t>(val & 0xFF);
+  msg << "a "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_acceleration : Setting acceleration to ["
       << msg.str() << "]" << std::endl;
@@ -245,10 +250,10 @@ void Attenuator::set_acceleration(const uint8_t val)
   m_acceleration = val;
 }
 
-void Attenuator::set_deceleration(const uint8_t val)
+void Attenuator::set_deceleration(const uint16_t val)
 {
   std::ostringstream msg;
-  msg << "d "<< static_cast<uint16_t>(val & 0xFF);
+  msg << "d "<< (val & 0xFF);
 #ifdef DEBUG
   std::cout << "Attenuator::set_deceleration : Setting deceleration to ["
       << msg.str() << "]" << std::endl;
@@ -274,7 +279,8 @@ const std::string Attenuator::get_status_raw()
 {
   std::string msg = "p";
   write_cmd(msg);
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
+  std::string resp;
+  read_cmd(resp);
 #ifdef DEBUG
   std::cout << "Attenuator::get_status_raw : Resp ["<< resp << "]" << std::endl;
 #endif
@@ -288,7 +294,8 @@ void Attenuator::refresh_status()
   std::string msg= "pc";
   write_cmd(msg);
 
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
+  std::string resp;
+  read_cmd(resp);
 #ifdef DEBUG
   std::cout << "Attenuator::refresh_status : Resp ["<< resp << "]" << std::endl;
 #endif
@@ -351,17 +358,22 @@ void Attenuator::refresh_status()
 // for instance, one could want to have separate threads checking on the position
 // and therefore would have no use for having the system locking while waiting for a status of '0'
 
-void Attenuator::get_position(int32_t &position, uint32_t &status, bool wait)
+void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
 {
   // query status and position of the attenuator motor
-  m_serial.write(std::string("o"));
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r\n"));
+  std::string msg("o");
+  write_cmd(msg);
+  std::string resp;
+  read_cmd(resp);
   // the answer already comes stripped from the carriage return '\r'
 #ifdef DEBUG
-  std::cout << "Attenuator::get_position : Resp ["<< resp << "]" << std::endl;
+  std::cout << "Attenuator::get_position : Resp ["<< util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // drop the first byte, as it is the echoed command 'o'
   resp = resp.substr(1);
+#ifdef DEBUG
+  std::cout << "Attenuator::get_position : Resp ["<< util::escape(resp.c_str()) << "]" << std::endl;
+#endif
   // tokenize the response
   std::vector<std::string> tokens;
   util::tokenize_string(resp,tokens);
@@ -375,9 +387,11 @@ void Attenuator::get_position(int32_t &position, uint32_t &status, bool wait)
     throw std::runtime_error(msg.str());
   }
   status = std::stoul(tokens.at(0));
+#ifdef DEBUG
+      std::cout << "Attenuator::get_position : status ["<< status << "] pos [" << position << "]" << std::endl;
+#endif
 
   // -- if wait is set to true, we need to do the extra length of looping until status is 0
-
   if (wait)
   {
     while(status != 0)
@@ -387,7 +401,7 @@ void Attenuator::get_position(int32_t &position, uint32_t &status, bool wait)
 #endif
       // call the function again
       get_position(position,status,false);
-      std::this_thread::sleep_for(std::chrono::milliseconds(250));
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
   }
 }
@@ -395,7 +409,7 @@ void Attenuator::get_position(int32_t &position, uint32_t &status, bool wait)
 void Attenuator::get_position(int32_t &position, enum MotorState &status, bool wait)
 {
 
-  uint32_t tmp_st;
+  uint16_t tmp_st;
   get_position(position,tmp_st,wait);
   status = static_cast<enum MotorState>(tmp_st);
 }
@@ -428,7 +442,6 @@ void Attenuator::save_settings()
 {
   std::string msg = "ss";
   write_cmd(msg);
-
 }
 
 void Attenuator::reset_controller()
@@ -467,12 +480,13 @@ void Attenuator::get_serial_number(std::string &sn)
 {
   std::string cmd = "n";
   write_cmd(cmd);
-  std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
-#ifdef DEBUG
-  std::cout << "Attenuator::get_serial_number : Resp ["<< resp << "]" << std::endl;
-#endif
+  read_cmd(sn);
+  //std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
+  //#ifdef DEBUG
+  //  std::cout << "Attenuator::get_serial_number : Resp ["<< resp << "]" << std::endl;
+  //#endif
   // get rid of the echo byte
-  sn = resp.substr(1);
+  sn = sn.substr(1);
   m_serial_number = sn;
 }
 
@@ -485,9 +499,9 @@ void Attenuator::get_serial_number(std::string &sn)
 ////////////////////////////////////////////////////////////
 
 
-void Attenuator::get_resolution(uint32_t &res)
+void Attenuator::get_resolution(uint16_t &res)
 {
-  res = static_cast<uint32_t>(m_resolution);
+  res = static_cast<uint16_t>(m_resolution);
   if (res == 6)
   {
     res = 16;
@@ -528,8 +542,29 @@ void Attenuator::refresh_position()
   get_position(m_position,m_motor_state,false);
 }
 
-const float Attenuator::convert_current(uint8_t val)
+const float Attenuator::convert_current(uint16_t val)
 {
   return 0.00835 * val;
 }
+
+void Attenuator::write_cmd(const std::string cmd)
+{
+  Device::write_cmd(cmd);
+  // attenuator instruction on page 31 say that we need to
+  // add an interval of 50ms between commands
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+}
+
+void Attenuator::read_cmd(std::string &answer)
+{
+  size_t nbytes = m_serial.readline(answer,0xFFFF,"\n\r");
+
+#ifdef DEBUG
+  std::cout << "Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+  answer.erase(answer.size()-2);
+
+}
+
+
 }

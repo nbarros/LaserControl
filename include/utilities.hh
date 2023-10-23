@@ -10,17 +10,40 @@
 
 #include <string>
 #include <vector>
+#include <map>
+#include <set>
 
 namespace util {
 
+const std::string WHITESPACE = " \n\r\t\f\v";
+
 void tokenize_string(std::string &str, std::vector<std::string> &tokens, std::string sep = ";");
+
+std::string ltrim(const std::string &s);
+
+std::string rtrim(const std::string &s);
+
+std::string trim(const std::string &s);
+
+std::string escape(const char* src);
+std::string escape(const std::string src);
+
+std::string escape(const char* src, const std::set<char> escapee, const char marker);
 
 int char2int(const char c);
 
 void enumerate_ports();
 
-// FIXME: Implement this
 std::string find_port(std::string param);
+
+
+template <typename T>
+std::string serial_map(const std::map<T,std::string> m);
+
+
+std::string serialize_map(const std::map<uint16_t,std::string> m);
+
+std::string serialize_map(const std::map<int16_t,std::string> m);
 
 }
 

@@ -55,7 +55,7 @@ else()
 endif()
 
 
-
+add_definitions(-DDEBUG)
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
 
@@ -79,3 +79,14 @@ add_executable(probe_serial_ports ${PROJECT_SOURCE_DIR}/src/probe_ports.cc)
 target_link_libraries(probe_serial_ports PUBLIC LaserControl)
 
 
+add_executable(test_all_devices EXCLUDE_FROM_ALL examples/test_all_devices.cc)
+target_link_libraries(test_all_devices PUBLIC LaserControl)
+
+add_executable(test_string_formatting EXCLUDE_FROM_ALL examples/test_string_formatting.cc)
+target_link_libraries(test_string_formatting PUBLIC LaserControl)
+
+add_executable(test_laser EXCLUDE_FROM_ALL examples/test_laser.cc)
+target_link_libraries(test_laser PUBLIC LaserControl)
+
+add_executable(test_pm EXCLUDE_FROM_ALL examples/test_powermeter.cc)
+target_link_libraries(test_pm PUBLIC LaserControl)

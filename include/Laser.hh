@@ -43,7 +43,7 @@ public:
   enum Mode{Commissioning=0,Calibration=1};
   enum Security{Normal=0,NoSerial=1,BadFlow=2,OverTemp=3,NotUsed=4,LaserHead=5,ExtInterlock=6,ChargePileUp=7,SimmerFail=8,FlowSwitch=9};
 
-  Laser (const char* port = "/dev/ttyUSB0", const uint32_t baud_rate = 9600);
+  Laser (const char* port = "auto", const uint32_t baud_rate = 9600);
   virtual ~Laser ();
 
   /**
@@ -86,7 +86,7 @@ public:
    *
    * @param force forces the prescale to 000
    */
-  void single_shot(bool force = false);
+  void single_shot();
 
   /**
    * Read the Shot Count
@@ -102,6 +102,9 @@ public:
    */
   void security(std::string &code,std::string &msg);
   void security(Security &code,std::string &msg);
+  void security(uint16_t &code,std::string &msg);
+
+  void security(std::string &code);
   /**
    * Set the repetition rate of the laser
    * # -- Should not be changed..
@@ -123,7 +126,17 @@ public:
    */
   void set_qswitch(uint32_t qs);
 
+
+  //void set_timeout_ms(uint32_t t);
+
+  //void set_read_suffix(const std::string sfx) {m_read_sfx = sfx;}
+
+  //void set_wait_read(bool v) {m_wait_read = v;}
 private:
+
+  void write_cmd(const std::string cmd);
+  void read_cmd(std::string &answer);
+
   // disallow any kind of copy constructor or assignment operators
   Laser (Laser &&other) = delete;
   Laser (const Laser &other) = delete;
@@ -143,6 +156,8 @@ private:
   uint32_t m_qswitch;
 
   std::map<std::string,std::string> m_sec_map;
+  //std::string m_read_sfx;
+  bool m_wait_read;
 
 };
 }

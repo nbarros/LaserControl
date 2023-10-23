@@ -8,6 +8,8 @@
 #include <utilities.hh>
 #include <iostream>
 #include <serial/serial.h>
+#include <sstream>
+#include <set>
 
 using std::vector;
 using std::string;
@@ -24,6 +26,7 @@ void tokenize_string(std::string &str, std::vector<std::string> &tokens, std::st
     tokens.push_back(str.substr(0, pos));
     str.erase(0, pos + sep.length());
   }
+  tokens.push_back(str);
 }
 
 int char2int(const char c)
@@ -32,6 +35,54 @@ int char2int(const char c)
   // see https://sentry.io/answers/char-to-int-in-c-and-cpp/
   return  (c - '0');
 
+}
+
+
+std::string ltrim(const std::string &s)
+{
+    size_t start = s.find_first_not_of(WHITESPACE);
+    return (start == std::string::npos) ? "" : s.substr(start);
+}
+
+std::string rtrim(const std::string &s)
+{
+    size_t end = s.find_last_not_of(WHITESPACE);
+    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
+
+std::string trim(const std::string &s) {
+    return rtrim(ltrim(s));
+}
+std::string escape(const std::string src)
+{
+  return escape(src.c_str(),{'\n','\t','\r'},'\\');
+}
+
+std::string escape(const char* src)
+{
+  return escape(src,{'\n','\t','\r'},'\\');
+}
+std::string escape(const char* src, const std::set<char> escapee, const char marker)
+{
+  std::string r;
+  static const std::map<char,char> specials = {{'\n','n'},{'\r','r'},{'\t','t'}};
+  while (char c = *src++)
+  {
+    if (escapee.find(c) != escapee.end())
+      r += marker;
+    //r += c; // to get the desired behavior,
+    // replace this line with: r += c == '\n' ? 'n' : c;
+    std::map<char,char>::const_iterator it = specials.find(c);
+    if (it != specials.end())
+    {
+      r += it->second;
+    }
+    else
+    {
+      r += c;
+    }
+  }
+  return r;
 }
 
 void enumerate_ports()
@@ -51,7 +102,6 @@ void enumerate_ports()
 
 std::string find_port(std::string param)
 {
-  cout << "find_port : This method is not implemented yet" << endl;
 
   // loop over all available ports and search if any of the fields matches the string
   // that was passed
@@ -87,7 +137,7 @@ std::string find_port(std::string param)
 #ifdef DEBUG
     cout << "find_port : Couldn't find any devices matching description" << endl;
 #endif
-    throw std::runtime_error("Couldn't find any devices matching description");
+    return "";//throw std::runtime_error("Couldn't find any devices matching description");
   }
   else if (devices_match.size() == 1)
   {
@@ -114,6 +164,34 @@ std::string find_port(std::string param)
   }
   return "";
 }
+
+template <typename T>
+std::string serial_map(const std::map<T,std::string> m)
+{
+  std::ostringstream os;
+  os << "{";
+    for (auto i : m)
+    {
+      os << "\"" << i.first << "\":\"" << i.second << "\",";
+    }
+    os.seekp(-1,os.cur);
+    os << "}";
+  std::string res = os.str();
+  return res;
+}
+
+std::string serialize_map(const std::map<uint16_t,std::string> m)
+{
+  return serial_map<uint16_t>(m);
+}
+
+std::string serialize_map(const std::map<int16_t,std::string> m)
+{
+  return serial_map<int16_t>(m);
+}
+
+
+
 
 }
 

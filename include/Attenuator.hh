@@ -74,7 +74,7 @@ public:
    * @param port
    * @param baud_rate
    */
-  Attenuator (const char* port = "/dev/ttyUSB0", const uint32_t baud_rate = 38400 );
+  Attenuator (const char* port = "auto", const uint32_t baud_rate = 38400 );
   virtual ~Attenuator ();
 
   /**
@@ -140,7 +140,7 @@ public:
    * @param res resolution setting
    */
   void set_resolution(const enum Resolution res);
-  void set_resolution(const uint32_t res) {set_resolution(static_cast<enum Resolution>(res));}
+  void set_resolution(const uint16_t res) {set_resolution(static_cast<enum Resolution>(res));}
 
   /**
    * Set the current for idle.
@@ -150,7 +150,7 @@ public:
    *
    * Note that there is a minimum necessary to keep the settings in memory
    */
-  void set_idle_current(const uint8_t val);
+  void set_idle_current(const uint16_t val);
 
   /**
    * Set the current for moving state.
@@ -159,7 +159,7 @@ public:
    * The value converts to current as I = 0.00835 * val (Amps)
    *
    */
-  void set_moving_current(const uint8_t val);
+  void set_moving_current(const uint16_t val);
 
   /**
    *
@@ -171,7 +171,7 @@ public:
    * According to manual:
    * > Setting acceleration helps to increase position repeatability
    */
-  void set_acceleration(const uint8_t val);
+  void set_acceleration(const uint16_t val);
 
   /**
    *
@@ -181,7 +181,7 @@ public:
    * 0 : no deceleration
    *
    */
-  void set_deceleration(const uint8_t val);
+  void set_deceleration(const uint16_t val);
 
   /**
    * Set maximal motor speed
@@ -218,7 +218,7 @@ public:
    * @param status
    * @param wait
    */
-  void get_position(int32_t &position, uint32_t &status, bool wait= false);
+  void get_position(int32_t &position, uint16_t &status, bool wait= false);
   void get_position(int32_t &position, enum MotorState &status, bool wait = false);
 
 
@@ -278,9 +278,9 @@ public:
 
   void get_motor_state(MotorState &s) {s = m_motor_state;}
 
-  void get_acceleration(uint8_t &a) {a = m_acceleration;}
+  void get_acceleration(uint16_t &a) {a = m_acceleration;}
 
-  void get_deceleration(uint8_t &d) {d = m_deceleration;}
+  void get_deceleration(uint16_t &d) {d = m_deceleration;}
 
  /**
   *         #Get the Motor's current microstepping resolution.
@@ -288,10 +288,10 @@ public:
   *
   * @param res
   */
- void get_resolution(uint32_t &res);
+ void get_resolution(uint16_t &res);
 
- void get_current_idle(uint8_t &c) {c = m_current_idle;}
- void get_current_move(uint8_t &c) {c = m_current_move;}
+ void get_current_idle(uint16_t &c) {c = m_current_idle;}
+ void get_current_move(uint16_t &c) {c = m_current_move;}
 
  void get_reset_on_zero(bool &r) {r = m_reset_on_zero;}
  void get_report_on_zero(bool &r) { r = m_report_on_zero;}
@@ -315,7 +315,16 @@ private:
    * @return corresponding position in steps
    */
   const int32_t trans_to_steps(const float trans);
-  const float convert_current(uint8_t val);
+  const float convert_current(uint16_t val);
+
+  /**
+   * Overload of Device::write_cmd, as the attenuator requires that 50 ms
+   * are injected between commands
+   * @param cmd
+   */
+  void write_cmd(const std::string cmd);
+  void read_cmd(std::string &answer);
+
 
   /// local variables
   int32_t m_offset;
@@ -323,15 +332,15 @@ private:
 
   enum OpMode m_op_mode;
   enum MotorState m_motor_state;
-  uint8_t m_acceleration;
-  uint8_t m_deceleration;
+  uint16_t m_acceleration;
+  uint16_t m_deceleration;
 
   enum Resolution m_resolution;
 
   bool m_motor_enabled;
   int32_t m_position;
-  uint8_t m_current_idle;
-  uint8_t m_current_move;
+  uint16_t m_current_idle;
+  uint16_t m_current_move;
 
   bool m_reset_on_zero;
   bool m_report_on_zero;

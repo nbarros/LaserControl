@@ -8,10 +8,13 @@
 #include <Laser.hh>
 #include <iostream>
 #include <serial/serial.h>
+#include <utilities.hh>
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
-#include  <string>
+#include <string>
+#include <thread>
+#include <chrono>
 
 namespace device {
 
@@ -22,8 +25,17 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   m_prescale(0),
   m_pump_hv(1.0),
   m_rate(10.0),
-  m_qswitch(400)
+  m_qswitch(400),
+  m_wait_read(false)
 {
+
+  // this is the really messed up truth...the real termination char is the \n
+  m_read_sfx = m_com_sfx;
+  // -- change the timeout to something smaller
+  // 50 ms?
+  // by default leave timeout to max
+  //  serial::Timeout t = serial::Timeout::simpleTimeout(500);
+  //  m_serial.setTimeout(t);
   // note that in C++ the base class constructor is the first to be called
   // by now the serial connection is set up and ready to be opened
 
@@ -45,6 +57,7 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   // 8 bit byte
   // no parity
   // 1 stop bit
+  m_serial.setPort(m_comport);
   m_serial.setBaudrate(m_baud);
   m_serial.setBytesize(serial::eightbits);
   m_serial.setParity(serial::parity_none);
@@ -66,11 +79,14 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
 #endif
 
 
+    // FIXME: We should not initialize anything. Or should we?
     /// we have a connection. Lets initialize some settings
-    set_prescale(m_prescale);
-    set_pump_voltage(m_pump_hv);
-    set_qswitch(m_qswitch);
-    set_repetition_rate(m_rate);
+    //set_prescale(m_prescale);
+    //set_pump_voltage(m_pump_hv);
+    //set_qswitch(m_qswitch);
+    //set_repetition_rate(m_rate);
+
+
     // actually, we should also query the device for its current settings
     // unfortunately, there is no such command
     // so the best is to set everything, and keeping good track of what are
@@ -135,7 +151,7 @@ void Laser::set_prescale(uint32_t pre)
 void Laser::set_pump_voltage(float hv)
 {
   /*
-    "HV" is a float w/ two decimal places, as a string
+    "VA" is a float w/ two decimal places, as a string
     MUST BE FORMATTED AS "HV X.XX"
     ANYTHING ELSE WILL THROW AN ERROR
     We should avoid setting the pump voltage REALLY high...
@@ -156,7 +172,7 @@ void Laser::set_pump_voltage(float hv)
   }
 
   std::ostringstream cmd;
-  cmd << "HV " << std::fixed << std::setprecision(2) << hv;
+  cmd << "VA " << std::fixed << std::setprecision(2) << hv;
 #ifdef DEBUG
     std::cout << "Laser::set_pump_voltage : Setting pump voltage to [" << cmd.str() << "]." << std::endl;
 #endif
@@ -165,26 +181,18 @@ void Laser::set_pump_voltage(float hv)
   m_pump_hv = hv;
 }
 
-void Laser::single_shot(bool force)
+// enable single shot mode.
+// this implies setting the prescale to 0, if it is not so
+void Laser::single_shot()
 {
-  if (force)
-  {
-    // set the prescale to 0 first, regardless of the previous value
-    set_prescale(0);
-  } else
-  {
-    // if prescale is not zero, throw an exception
-    ;
-  }
+  // set the prescale to 0 first, regardless of the previous value
+  set_prescale(0);
 
   std::string cmd = "SS";
-
 #ifdef DEBUG
-    std::cout << "Laser::set_ss_mode : Firing single shot." << std::endl;
+    std::cout << "Laser::set_ss_mode : Enabling single shot mode." << std::endl;
 #endif
-
   write_cmd(cmd);
-
 }
 
 void Laser::get_shot_count(uint32_t &count)
@@ -192,13 +200,31 @@ void Laser::get_shot_count(uint32_t &count)
   std::string cmd = "SC";
 
    write_cmd(cmd);
+   std::string resp;
+   //read_cmd(resp);
 
-   std::string resp = m_serial.readline(0xFFFF,m_com_post);
+   std::vector<std::string> lines;
+   read_lines(lines);
+
 #ifdef DEBUG
-   std::cout << "Laser::get_shot_count : Received answer [" << resp << "]" << std::endl;
+  std::cout << "Laser::security : Received [" << lines.size() << "] answer tokens" << std::endl;
+#endif
+  // the second is the answer
+  resp = lines.at(1);
+  resp.erase(resp.size()-1);
+
+
+   //   std::string resp = m_serial.readline(0xFFFF,m_com_sfx);
+   //resp.erase(resp.size()-1);
+//#ifdef DEBUG
+//   std::cout << "Laser::get_shot_count : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+//#endif
+//   resp = resp.substr(cmd.size()+1); // drop the echoed command
+#ifdef DEBUG
+   std::cout << "Laser::get_shot_count : Trimmed [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
    // according to the python script, the answer we want is in the bytes [3:11]
-   count = stoul(resp.substr(3,9)); // 9 is the max length
+   count = stoul(resp); // 9 is the max length
    //FIXME: This may require revising
    // manual states
    // The response to SC (Shot count) is a 9 digit ASCII code terminated by a Carriage Return
@@ -211,6 +237,33 @@ void Laser::get_shot_count(uint32_t &count)
 }
 
 void Laser::security(std::string &code,std::string &msg)
+{
+  security(code);
+  if (m_sec_map.count(code)!= 0)
+  {
+    msg = m_sec_map[code];
+  }
+  else
+  {
+    msg = "";
+  }
+}
+
+void Laser::security(uint16_t &code,std::string &msg)
+{
+  std::string tmp_code;
+  security(tmp_code,msg);
+  code = static_cast<uint16_t>(std::stoul(tmp_code) & 0xFFFF);
+}
+
+void Laser::security(Security &code,std::string &msg)
+{
+  std::string tmp_code;
+  security(tmp_code,msg);
+  code = static_cast<Security>(std::stol(tmp_code));
+}
+
+void Laser::security(std::string &code)
 {
   /* pp. 42 of manual
    * The response to SE is a 2 digit ASCII code, terminated by a Carriage Return
@@ -229,24 +282,32 @@ Table 6 below.
 09 Flow switch stuck on
    */
   std::string cmd = "SE";
+  std::string resp;
   write_cmd(cmd);
 
-  std::string resp = m_serial.readline(0xFFFF,m_com_post);
+  std::vector<std::string> lines;
+  read_lines(lines);
+  // expect 2 answers
 #ifdef DEBUG
-   std::cout << "Laser::security : Received answer [" << resp << "]" << std::endl;
+  std::cout << "Laser::security : Received [" << lines.size() << "] answer tokens" << std::endl;
 #endif
+  // the second is the answer
+  resp = lines.at(1);
+  resp.erase(resp.size()-1);
+  //read_cmd(resp);
 
+#ifdef DEBUG
+   std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+#endif
+   // get rid of the echoed command (plus termination)
+   //resp = resp.substr(cmd.size()+1);
+   //resp.erase(resp.size()-1);
+//#ifdef DEBUG
+//   std::cout << "Laser::security : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+//#endif
    code = resp;
-   msg = m_sec_map[code];
-
 }
 
-void Laser::security(Security &code,std::string &msg)
-{
-  std::string tmp_code;
-  security(tmp_code,msg);
-  code = static_cast<Security>(std::stol(tmp_code));
-}
 
 void Laser::set_repetition_rate(float rate)
 {
@@ -279,8 +340,44 @@ void Laser::set_qswitch(uint32_t qs)
     std::cout << "Laser::set_qswitch : Submitting command (" << cmd.str() << "). " << std::endl;
 #endif
     write_cmd(cmd.str());
-
     m_qswitch = qs;
+}
+
+
+void Laser::write_cmd(const std::string cmd)
+{
+  Device::write_cmd(cmd);
+  // attenuator instruction on page 31 say that we need to
+  // add an interval of 50ms between commands
+  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+}
+
+void Laser::read_cmd(std::string &answer)
+{
+  // wait for the port to be ready
+  size_t nbytes = 0;
+  // only do this wait if the timeout is not 0
+  if (m_wait_read)
+  {
+    if(!m_serial.waitReadable())
+    {
+  #ifdef DEBUG
+    std::cout << "Laser::read_cmd : Timed out waiting for a readable state. Attempting to read anyway." << std::endl;
+  #endif
+    }
+  }
+  // Need to read it twice...the first to get the echo command, and the second to get the answer
+  nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
+#ifdef DEBUG
+  std::cout << "Laser::read_cmd : Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+
+  answer.erase(answer.size()-m_read_sfx.length());
+
+#ifdef DEBUG
+  std::cout << "Laser::read_cmd : Trimmed answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
 
 }
 

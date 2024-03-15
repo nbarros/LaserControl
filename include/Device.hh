@@ -34,6 +34,8 @@ namespace device
     void set_com_suffix(const std::string suf) {m_com_sfx = suf;}
     void set_read_suffix(const std::string suf) {m_read_sfx = suf;}
 
+    const std::string get_port() {return m_comport;}
+    const uint32_t get_baud() {return m_baud;}
 
     void read_lines(std::vector<std::string> &lines);
     void set_timeout_ms(uint32_t t);

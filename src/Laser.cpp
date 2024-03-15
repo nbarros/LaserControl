@@ -21,7 +21,6 @@ namespace device {
 Laser::Laser (const char* port, const uint32_t baud_rate)
 : Device(port,baud_rate),
   m_is_firing(false),
-  // FIXME: Add reasonable defaults to this
   m_prescale(0),
   m_pump_hv(1.1),
   m_rate(10.0),

@@ -56,7 +56,7 @@ PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)
 #endif
     /// we have a connection. Lets initialize some settings
 
-    /** FIXME:
+    /**
      * Should we set up defaults or just establish a connection and instead refresh the local variables
      * from the existing settings?
      */

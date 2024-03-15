@@ -463,6 +463,7 @@ void PowerMeter::energy_flag(bool &new_val)
 #ifdef DEBUG
   std::cout << "PowerMeter::energy_flag : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
+  if (resp.size() < 2) new_val = false;
   new_val = (std::stol(resp.substr(1)) == 0)?false:true;
 }
 
@@ -853,6 +854,17 @@ void PowerMeter::send_energy(double &value)
   value = std::stod(rr.substr(1));
 }
 
+bool PowerMeter::read_energy(double &energy)
+{
+  bool status;
+  energy_flag(status);
+  if (status)
+  {
+    send_energy(energy);
+  }
+  return status;
+}
+
 void PowerMeter::send_frequency(double &value)
 {
   std::string rr;
@@ -875,6 +887,18 @@ void PowerMeter::send_average(double &value)
   value = std::stod(rr.substr(1));
 }
 
+
+bool  PowerMeter::read_average(double &value)
+{
+  bool st;
+  get_average_flag(st);
+  if (st)
+  {
+    send_average(value);
+  }
+
+  return st;
+}
 void PowerMeter::send_units(char &unit)
 {
   std::string rr;

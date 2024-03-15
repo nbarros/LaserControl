@@ -206,6 +206,10 @@ public:
   // with the EF command.
   void send_energy(double &value);
 
+
+  // Wrapper method that combines EF and SE
+  bool read_energy(double &energy);
+
   // SF
   // Send frequency : Queries device for frequency at which the laser is firing.
   void send_frequency(double &value);
@@ -215,6 +219,9 @@ public:
   // NOTE: Use with $AF to ensure reading each average only once.
   // AF --> get_average_flag
   void send_average(double &value);
+
+  // wrapper method that combines AF and SG
+  bool read_average(double &value);
 
   // SI
   // send units : Queries meter for present measurement mode.

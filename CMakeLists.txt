@@ -12,26 +12,26 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 
-## load in pkg-config support
-#find_package(PkgConfig)
-## use pkg-config to get hints for 0mq locations
-#pkg_check_modules(PC_ZeroMQPP cppzmq)
+# load in pkg-config support
+find_package(PkgConfig)
+# use pkg-config to get hints for 0mq locations
+pkg_check_modules(PC_ZeroMQPP cppzmq)
 
-#cmake_print_variables(PC_ZeroMQPP_INCLUDE_DIRS)
+cmake_print_variables(PC_ZeroMQPP_INCLUDE_DIRS)
 
-## use the hint from above to find where 'zmq.hpp' is located
-#find_path(ZeroMQ_INCLUDE_DIR
-#        NAMES zmq.hpp
-#        PATHS ${PC_ZeroMQ_INCLUDE_DIRS}
-#        )
-#cmake_print_variables(ZeroMQ_INCLUDE_DIR)
+# use the hint from above to find where 'zmq.hpp' is located
+find_path(ZeroMQ_INCLUDE_DIR
+        NAMES zmq.hpp
+        PATHS ${PC_ZeroMQ_INCLUDE_DIRS}
+        )
+cmake_print_variables(ZeroMQ_INCLUDE_DIR)
 
-## use the hint from above to find the location of libzmq
-#find_library(ZeroMQ_LIBRARY
-#        NAMES zmq
-#        PATHS ${PC_ZeroMQ_LIBRARY_DIRS}
-#        )
-#cmake_print_variables(ZeroMQ_LIBRARY)
+# use the hint from above to find the location of libzmq
+find_library(ZeroMQ_LIBRARY
+        NAMES zmq
+        PATHS ${PC_ZeroMQ_LIBRARY_DIRS}
+        )
+cmake_print_variables(ZeroMQ_LIBRARY)
         
 # get all *.cpp files recursively
 #file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
@@ -59,6 +59,14 @@ add_definitions(-DDEBUG)
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
 
+set(LIB_DAC_FILES ${PROJECT_SOURCE_DIR}/src/AD5339.cpp)
+add_library(DAC STATIC ${LIB_DAC_FILES})
+target_compile_features(DAC PUBLIC cxx_std_11)
+
+add_executable(test_AD5339 ${PROJECT_SOURCE_DIR}/src/test_AD5339.cpp)
+target_link_libraries(test_AD5339 PUBLIC DAC)
+
+
 # Now add a server target
 #add_executable(control_server EXCLUDE_FROM_ALL ${PROJECT_SOURCE_DIR}/src/control_server.cpp)
 ## add the include directory to our compile directives
@@ -69,6 +77,7 @@ target_compile_features(LaserControl PUBLIC cxx_std_11)
 # Now add a server target
 add_executable(probe_serial_ports ${PROJECT_SOURCE_DIR}/src/probe_ports.cc)
 target_link_libraries(probe_serial_ports PUBLIC LaserControl)
+
 
 add_executable(test_all_devices EXCLUDE_FROM_ALL examples/test_all_devices.cc)
 target_link_libraries(test_all_devices PUBLIC LaserControl)

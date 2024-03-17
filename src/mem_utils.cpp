@@ -10,39 +10,38 @@
 #include <cstdio>
 #include <cstddef>
 #include <sys/mman.h>
+#include <bitset>
 
 extern "C"
 {
 #include <fcntl.h>
 #include <inttypes.h>
 };
+
 namespace cib
 {
   namespace util
   {
 
-    volatile int g_mmap_fd;
-
-
-    uintptr_t map_phys_mem(uintptr_t base_addr,uintptr_t high_addr)
+    uintptr_t map_phys_mem(int &fd, uintptr_t base_addr,uintptr_t high_addr)
     {
       void * mapped_addr = nullptr;
       off_t dev_base = base_addr;
-      if (g_mmap_fd == 0)
+      if (fd == 0)
       {
-        g_mmap_fd = open("/dev/mem",O_RDWR | O_SYNC);
-        if (g_mmap_fd == -1)
+        fd = open("/dev/mem",O_RDWR | O_SYNC);
+        if (fd == -1)
         {
           printf("Failed to map register [0x%" PRIx64 " 0x%" PRIx64 "].",base_addr,high_addr);
-          g_mmap_fd = 0;
-          return NULL;
+          fd = 0;
+          return 0;
         }
       }
       // Map into user space the area of memory containing the device
-      mapped_addr = mmap(0, (high_addr-base_addr), PROT_READ | PROT_WRITE, MAP_SHARED, g_mmap_fd, dev_base & ~(high_addr-base_addr-1));
+      mapped_addr = mmap(0, (high_addr-base_addr), PROT_READ | PROT_WRITE, MAP_SHARED, fd, dev_base & ~(high_addr-base_addr-1));
       if ( (intptr_t)mapped_addr == -1) {
         printf("Failed to map register [0x%" PRIx64 " 0x%" PRIx64 "] into virtual address.",base_addr,high_addr);
-        mapped_addr = NULL;
+        mapped_addr = 0;
       }
       return reinterpret_cast<uintptr_t>(mapped_addr);
     }
@@ -88,6 +87,41 @@ namespace cib
     {
       uint32_t cache = reg_read(addr);
       reg_write(addr,((cache & ~mask) | (value & mask)));
+    }
+
+    void reg_write_mask_offset(uintptr_t addr, uint32_t value, uint32_t mask, uint32_t offset)
+    {
+      uint32_t cache = reg_read(addr);
+      // now shift the value into the relevant bits
+      uint32_t v = (value << offset);
+      reg_write(addr,((cache & ~mask) | (v & mask)));
+    }
+
+    // from https://stackoverflow.com/questions/35109714/can-someone-explain-how-this-bitmask-code-works
+    uint32_t bitmask(uint16_t highbit, uint16_t lowbit)
+    {
+      uint32_t i = ~0U;
+        return ~(i << highbit << 1) & (i << lowbit);
+    }
+    /**
+     * Examples:
+     * bitSpec(0, 32) -> 0xFFFFFFFF.
+     * bitSpec(0, 1) -> 0x00000001.
+     * bitSpec(16, 16) -> 0xFFFF0000.
+     * bitSpec(0, 16) -> 0x0000FFFF.
+     */
+    uint32_t bitspec(uint16_t start, uint16_t len)
+    {
+      return (~0U >> (32 - len)) << start;
+    }
+
+    /**
+     * generate a string equivalent of a value
+     * https://bloomfield.online/posts/convert-a-number-to-a-binary-string-and-back-in-cpp/#:~:text=Number%20to%20binary%20string,as%20an%208%2Dbit%20value.&text=std%3A%3Astring%20str%20%3D%20std,to_string()%3B
+     */
+    const std::string dump_binary(uint32_t val)
+    {
+      return std::bitset<32>(val).to_string();
     }
 
   };

@@ -38,6 +38,8 @@ public:
   enum MainsFreq{mfQuery=0,mf50Hz=1,mf60Hz=2};
   // NOTE: Only the measurements valid for Vega instrument are implemented
   enum MeasurementMode{mmQuery=0,mmPassive=1,mmPower=2,mmEnergy=3,mmExposure=4};
+
+  PowerMeter () { };
   PowerMeter (const char* port, const uint32_t baud_rate = 9600);
   virtual ~PowerMeter ();
 

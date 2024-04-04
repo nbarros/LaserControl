@@ -20,6 +20,8 @@ namespace device
   public:
     enum RetStatus {Success=0, Failed=0x1};
 
+    Device ( ) {};
+
     Device (const char* port, const uint32_t baud_rate);
     virtual ~Device ();
 

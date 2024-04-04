@@ -74,7 +74,8 @@ public:
    * @param port
    * @param baud_rate
    */
-  Attenuator (const char* port = "auto", const uint32_t baud_rate = 38400 );
+  Attenuator () { };
+  Attenuator (const char* port, const uint32_t baud_rate = 38400 );
   virtual ~Attenuator ();
 
   /**

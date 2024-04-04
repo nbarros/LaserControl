@@ -39,7 +39,16 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 #add_subdirectory(${PROJECT_SOURCE_DIR}/src)
 
 # -- this would be to install separate applications
-set(LIB_SRC_FILES ${PROJECT_SOURCE_DIR}/src/Attenuator.cpp ${PROJECT_SOURCE_DIR}/src/Device.cpp ${PROJECT_SOURCE_DIR}/src/Laser.cpp ${PROJECT_SOURCE_DIR}/src/PowerMeter.cpp ${PROJECT_SOURCE_DIR}/src/serial.cc ${PROJECT_SOURCE_DIR}/src/utilities.cpp ${PROJECT_SOURCE_DIR}/src/mem_utils.cpp)
+set(LIB_SRC_FILES ${PROJECT_SOURCE_DIR}/src/Attenuator.cpp 
+				  ${PROJECT_SOURCE_DIR}/src/Device.cpp 
+				  ${PROJECT_SOURCE_DIR}/src/Laser.cpp 
+				  ${PROJECT_SOURCE_DIR}/src/PowerMeter.cpp
+				  ${PROJECT_SOURCE_DIR}/src/AttenuatorSim.cpp
+				  ${PROJECT_SOURCE_DIR}/src/LaserSim.cpp 
+				  ${PROJECT_SOURCE_DIR}/src/PowerMeterSim.cpp
+				  ${PROJECT_SOURCE_DIR}/src/serial.cc 
+				  ${PROJECT_SOURCE_DIR}/src/utilities.cpp 
+				  ${PROJECT_SOURCE_DIR}/src/mem_utils.cpp)
 if(APPLE)
     # If OSX
     list(APPEND LIB_SRC_FILES src/impl/unix.cc)

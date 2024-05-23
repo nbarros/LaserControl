@@ -36,6 +36,7 @@ cmake_print_variables(ZeroMQ_LIBRARY)
 # get all *.cpp files recursively
 #file(GLOB_RECURSE SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 include_directories(${PROJECT_SOURCE_DIR}/include)
+
 #add_subdirectory(${PROJECT_SOURCE_DIR}/src)
 
 # -- this would be to install separate applications
@@ -59,12 +60,12 @@ add_definitions(-DDEBUG)
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
 
-set(LIB_DAC_FILES ${PROJECT_SOURCE_DIR}/src/AD5339.cpp)
-add_library(DAC STATIC ${LIB_DAC_FILES})
-target_compile_features(DAC PUBLIC cxx_std_11)
+#set(LIB_DAC_FILES ${PROJECT_SOURCE_DIR}/src/AD5339.cpp)
+#add_library(DAC STATIC ${LIB_DAC_FILES})
+#target_compile_features(DAC PUBLIC cxx_std_11)
 
-add_executable(test_AD5339 ${PROJECT_SOURCE_DIR}/src/test_AD5339.cpp)
-target_link_libraries(test_AD5339 PUBLIC DAC)
+#add_executable(test_AD5339 ${PROJECT_SOURCE_DIR}/src/test_AD5339.cpp)
+#target_link_libraries(test_AD5339 PUBLIC DAC)
 
 
 # Now add a server target

@@ -35,7 +35,7 @@ void test_powermeter(uint32_t timeout, std::string read_suffix, std::string writ
       << " and timeout [" << timeout << "] ms" << endl;
 
 
-  const char*sn = "A9JR8MJT";
+  const char*sn = "A9CQTZ05"; //"A9JR8MJT";
    cout << log(label) <<"Testing powermeter." << endl;
    std::string port = util::find_port(sn);
    if (port.size() == 0)

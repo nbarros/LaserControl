@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.2)
 include(CMakePrintHelpers)
 project(
   controlLibrary
-  VERSION 1.0
+  VERSION 1.1
   LANGUAGES CXX)
  
 # We need c++11
@@ -68,7 +68,7 @@ endif()
 add_definitions(-DDEBUG)
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
-
+target_include_directories(LaserControl PUBLIC ${PROJECT_SOURCE_DIR}/include)
 #set(LIB_DAC_FILES ${PROJECT_SOURCE_DIR}/src/AD5339.cpp)
 #add_library(DAC STATIC ${LIB_DAC_FILES})
 #target_compile_features(DAC PUBLIC cxx_std_11)
@@ -88,6 +88,9 @@ target_compile_features(LaserControl PUBLIC cxx_std_11)
 add_executable(probe_serial_ports ${PROJECT_SOURCE_DIR}/src/probe_ports.cc)
 target_link_libraries(probe_serial_ports PUBLIC LaserControl)
 
+
+add_executable(serial_manager ${PROJECT_SOURCE_DIR}/examples/serial_manager.cpp)
+target_link_libraries(serial_manager PUBLIC LaserControl spdlog readline)
 
 add_executable(test_all_devices EXCLUDE_FROM_ALL examples/test_all_devices.cc)
 target_link_libraries(test_all_devices PUBLIC LaserControl)

@@ -328,13 +328,13 @@ int main(int argc, char**argv)
   // this test simply tries to figure out the port of each device
   // connect to it and query something
 
-  const std::string laser_sn = "FTC7LJXH";
-  test_laser(laser_sn.c_str());
+  const std::string laser_sn = "A9J0G3SV";
+  //test_laser(laser_sn.c_str());
 
-  const std::string attenuator_sn = "6ATT1538D";
+  const std::string attenuator_sn = "6ATT1788D";
   test_attenuator(attenuator_sn.c_str());
 
-  const std::string pm_sn = "A9JR8MJT";
+  const std::string pm_sn = "A9CQTZ05";
   test_power_meter(pm_sn.c_str());
 
   return 0;

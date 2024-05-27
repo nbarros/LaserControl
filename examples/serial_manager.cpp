@@ -290,10 +290,10 @@ int map_power_meter()
     spdlog::debug("Querying the instrument:");
     iols.power_meter->inst_info(tp, sn, name);
     spdlog::debug("INSTRUMENT INFO :\n"
-                  "ID             : {0}\n"
-                  "Serial number  : {1}\n"
-                  "Name           : {2}\n"
-                  ,tp,sn,name);
+        "ID             : {0}\n"
+        "Serial number  : {1}\n"
+        "Name           : {2}\n"
+        ,tp,sn,name);
     spdlog::debug("Querying range:");
     int16_t cur;
     std::map<int16_t,std::string> rmap;
@@ -508,273 +508,295 @@ int run_command(int argc, char** argv)
   {
     return 1;
   }
-
-  std::string cmd(argv[0]);
-  // check command request
-  if (cmd == "exit")
+  try
   {
-    return 255;
-  }
-  else if (cmd == "help")
-  {
-    print_help();
-    return 0;
-  }
-  else if (cmd == "laser")
-  {
-    int res = 0;
-    if (argc == 2)
+    std::string cmd(argv[0]);
+    // check command request
+    if (cmd == "exit")
     {
-      if (std::string(argv[1]) == "single_shot")
-      {
-        spdlog::warn("Firing a single shot");
-        iols.laser->single_shot();
-      }
-      else if (std::string(argv[1]) == "shot_count")
-      {
-        uint32_t count;
-        iols.laser->get_shot_count(count);
-        spdlog::info("COUNT : {0}",count);
-      }
-      else if (std::string(argv[1]) == "security")
-      {
-        std::string code, msg;
-        iols.laser->security(code,msg);
-        spdlog::info("SECURITY : {0} :{1}",code,msg);
-      }
-      else if (std::string(argv[1]) == "fire_start")
-      {
-        iols.laser->fire_start();
-        spdlog::warn("Laser started firing");
-      }
-      else if (std::string(argv[1]) == "fire_stop")
-      {
-        iols.laser->fire_stop();
-        spdlog::warn("Laser stopped firing");
-      }
-      else if (std::string(argv[1]) == "shutter_open")
-      {
-        iols.laser->shutter_open();
-        spdlog::warn("Shutter is open");
-      }
-      else if (std::string(argv[1]) == "shutter_close")
-      {
-        iols.laser->shutter_close();
-        spdlog::warn("Shutter is closed");
-      }
-      else
-      {
-        spdlog::error("Unknown command {0}",argv[1]);
-        print_help();
-      }
+      return 255;
     }
-    else if (argc == 3)
+    else if (cmd == "help")
     {
-      if (std::string(argv[1]) == "prescale")
-      {
-        uint32_t ps = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting prescale to {0}",ps);
-        iols.laser->set_prescale(ps);
-      }
-      else if (std::string(argv[1]) == "division")
-      {
-        uint32_t div = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting pulse division to {0}",div);
-        iols.laser->set_pulse_division(div);
-      }
-      else if (std::string(argv[1]) == "hv")
-      {
-        float hv = std::stof(argv[2]);
-        spdlog::debug("Setting pump HV to {0}",hv);
-        iols.laser->set_pump_voltage(hv);
-      }
-//      else if (std::string(argv[1]) == "set_rate")
-//      {
-//        float rate = std::stof(argv[2]);
-//        spdlog::warn("Setting repetition rate to {0}",rate);
-//        iols.laser->set_repetition_rate(rate);
-//      }
-      else if (std::string(argv[1]) == "qswitch")
-      {
-        uint32_t qs = std::strtol(argv[2],NULL,0);
-        spdlog::warn("Setting qswitch to {0} us",qs);
-        iols.laser->set_qswitch(qs);
-      }
-      else
-      {
-        spdlog::error("Unknown command {0}",argv[1]);
-        print_help();
-      }
-    }
-    else
-    {
-      spdlog::error("Unknown laser command");
       print_help();
+      return 0;
     }
-    return 0;
-  }
-  else if (cmd == "attenuator")
-  {
-    int res = 0;
-    if (argc == 1)
+    else if (cmd == "laser")
     {
-      res = query_attenuator_settings();
-      if (res != 0)
+      int res = 0;
+      if (argc == 2)
       {
-        spdlog::error("Failed to query settings");
-        return 1;
+        if (std::string(argv[1]) == "single_shot")
+        {
+          spdlog::warn("Firing a single shot");
+          iols.laser->single_shot();
+        }
+        else if (std::string(argv[1]) == "shot_count")
+        {
+          uint32_t count;
+          iols.laser->get_shot_count(count);
+          spdlog::info("COUNT : {0}",count);
+        }
+        else if (std::string(argv[1]) == "security")
+        {
+          std::string code, msg;
+          iols.laser->security(code,msg);
+          spdlog::info("SECURITY : {0} :{1}",code,msg);
+        }
+        else if (std::string(argv[1]) == "fire_start")
+        {
+          iols.laser->fire_start();
+          spdlog::warn("Laser started firing");
+        }
+        else if (std::string(argv[1]) == "fire_stop")
+        {
+          iols.laser->fire_stop();
+          spdlog::warn("Laser stopped firing");
+        }
+        else if (std::string(argv[1]) == "shutter_open")
+        {
+          iols.laser->shutter_open();
+          spdlog::warn("Shutter is open");
+        }
+        else if (std::string(argv[1]) == "shutter_close")
+        {
+          iols.laser->shutter_close();
+          spdlog::warn("Shutter is closed");
+        }
+        else
+        {
+          spdlog::error("Unknown command {0}",argv[1]);
+          print_help();
+        }
       }
-    }
-    if (argc == 2)
-    {
-      if (std::string(argv[1]) == "set_zero")
+      else if (argc == 3)
       {
-        spdlog::info("Setting zero to current position");
-        iols.attenuator->set_zero();
-      }
-      else if (std::string(argv[1]) == "stop")
-      {
-        // this is a soft stop
-        spdlog::warn("stopping movement");
-        iols.attenuator->stop(false);
-      }
-      else if (std::string(argv[1]) == "go_home")
-      {
-        spdlog::info("Going home");
-        iols.attenuator->go_home();
-      }
-      else if (std::string(argv[1]) == "get_position")
-      {
-        spdlog::info("Getting position");
-        int32_t position;
-        uint16_t status;
-        iols.attenuator->get_position(position,status);
-        spdlog::info("POS : {0} (status :{1}",position,status);
-      }
-      else if (std::string(argv[1]) == "reset")
-      {
-        spdlog::info("Resetting controller");
-        iols.attenuator->reset_controller();
-      }
-      else if (std::string(argv[1]) == "get_settings")
-      {
-        spdlog::info("Querying settings");
-        std::string sn;
-        int32_t offset;
-        uint32_t speed, max_speed;
-        uint16_t acceleration, deceleration, resolution, current_idle, current_move;
-        device::Attenuator::OpMode mode;
-        device::Attenuator::MotorState state;
-        iols.attenuator->refresh_status();
-        iols.attenuator->get_serial_number(sn);
-        iols.attenuator->get_offset(offset);
-        iols.attenuator->get_max_speed(max_speed);
-        iols.attenuator->get_op_mode(mode);
-        iols.attenuator->get_motor_state(state);
-        iols.attenuator->get_acceleration(acceleration);
-        iols.attenuator->get_deceleration(deceleration);
-        iols.attenuator->get_resolution(resolution);
-        iols.attenuator->get_current_idle(current_idle);
-        iols.attenuator->get_current_move(current_move);
-        spdlog::info("CURRENT SETTINGS :\n"
-            "S/N          : {0}\n"
-            "OFFSET       : {1}\n"
-            "MAX SPEED    : {2}\n"
-            "OP MODE      : {3}\n"
-            "MOTOR STATE  : {4}\n"
-            "ACCELERATION : {5}\n"
-            "DELECERATION : {6}\n"
-            "RESOLUTION   : {7}\n"
-            "CURRENT IDLE : {8}\n"
-            "CURRENT MOVE : {9}\n"
-        ,sn,offset,max_speed,static_cast<int>(mode),static_cast<int>(state)
-        ,acceleration,deceleration,resolution,current_idle,current_move);
+        if (std::string(argv[1]) == "prescale")
+        {
+          uint32_t ps = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting prescale to {0}",ps);
+          iols.laser->set_prescale(ps);
+        }
+        else if (std::string(argv[1]) == "division")
+        {
+          uint32_t div = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting pulse division to {0}",div);
+          iols.laser->set_pulse_division(div);
+        }
+        else if (std::string(argv[1]) == "hv")
+        {
+          float hv = std::stof(argv[2]);
+          spdlog::debug("Setting pump HV to {0}",hv);
+          iols.laser->set_pump_voltage(hv);
+        }
+        //      else if (std::string(argv[1]) == "set_rate")
+        //      {
+        //        float rate = std::stof(argv[2]);
+        //        spdlog::warn("Setting repetition rate to {0}",rate);
+        //        iols.laser->set_repetition_rate(rate);
+        //      }
+        else if (std::string(argv[1]) == "qswitch")
+        {
+          uint32_t qs = std::strtol(argv[2],NULL,0);
+          spdlog::warn("Setting qswitch to {0} us",qs);
+          iols.laser->set_qswitch(qs);
+        }
+        else
+        {
+          spdlog::error("Unknown command {0}",argv[1]);
+          print_help();
+        }
       }
       else
       {
-        spdlog::error("Unknown command {0}",argv[1]);
+        spdlog::error("Unknown laser command");
         print_help();
       }
       return 0;
     }
-    else if (argc == 3)
+    else if (cmd == "attenuator")
     {
-      if (std::string(argv[1]) == "move")
+      int res = 0;
+      if (argc == 1)
       {
-        int32_t steps = std::strtol(argv[2],NULL,0);
-        int32_t final_pos;
-        spdlog::debug("Moving by {0} steps",steps);
-        iols.attenuator->move(steps,final_pos,true);
-        spdlog::info("Current position : {0}",final_pos);
+        res = query_attenuator_settings();
+        if (res != 0)
+        {
+          spdlog::error("Failed to query settings");
+          return 1;
+        }
       }
-      else if (std::string(argv[1]) == "move_to")
+      if (argc == 2)
       {
-        int32_t set_pos = std::strtol(argv[2],NULL,0);
-        int32_t final_pos;
-        spdlog::debug("Moving to position {0}",set_pos);
-        iols.attenuator->go(set_pos,final_pos,true);
-        spdlog::info("Current position : {0}",final_pos);
+        if (std::string(argv[1]) == "set_zero")
+        {
+          spdlog::info("Setting zero to current position");
+          iols.attenuator->set_zero();
+        }
+        else if (std::string(argv[1]) == "stop")
+        {
+          // this is a soft stop
+          spdlog::warn("stopping movement");
+          iols.attenuator->stop(false);
+        }
+        else if (std::string(argv[1]) == "go_home")
+        {
+          spdlog::info("Going home");
+          iols.attenuator->go_home();
+        }
+        else if (std::string(argv[1]) == "get_position")
+        {
+          spdlog::info("Getting position");
+          int32_t position;
+          uint16_t status;
+          iols.attenuator->get_position(position,status);
+          spdlog::info("POS : {0} (status :{1}",position,status);
+        }
+        else if (std::string(argv[1]) == "reset")
+        {
+          spdlog::info("Resetting controller");
+          iols.attenuator->reset_controller();
+        }
+        else if (std::string(argv[1]) == "get_settings")
+        {
+          spdlog::info("Querying settings");
+          std::string sn;
+          int32_t offset;
+          uint32_t speed, max_speed;
+          uint16_t acceleration, deceleration, resolution, current_idle, current_move;
+          device::Attenuator::OpMode mode;
+          device::Attenuator::MotorState state;
+          iols.attenuator->refresh_status();
+          iols.attenuator->get_serial_number(sn);
+          iols.attenuator->get_offset(offset);
+          iols.attenuator->get_max_speed(max_speed);
+          iols.attenuator->get_op_mode(mode);
+          iols.attenuator->get_motor_state(state);
+          iols.attenuator->get_acceleration(acceleration);
+          iols.attenuator->get_deceleration(deceleration);
+          iols.attenuator->get_resolution(resolution);
+          iols.attenuator->get_current_idle(current_idle);
+          iols.attenuator->get_current_move(current_move);
+          spdlog::info("CURRENT SETTINGS :\n"
+              "S/N          : {0}\n"
+              "OFFSET       : {1}\n"
+              "MAX SPEED    : {2}\n"
+              "OP MODE      : {3}\n"
+              "MOTOR STATE  : {4}\n"
+              "ACCELERATION : {5}\n"
+              "DELECERATION : {6}\n"
+              "RESOLUTION   : {7}\n"
+              "CURRENT IDLE : {8}\n"
+              "CURRENT MOVE : {9}\n"
+              ,sn,offset,max_speed,static_cast<int>(mode),static_cast<int>(state)
+              ,acceleration,deceleration,resolution,current_idle,current_move);
+        }
+        else
+        {
+          spdlog::error("Unknown command {0}",argv[1]);
+          print_help();
+        }
+        return 0;
       }
-      else if (std::string(argv[1]) == "set_resolution")
+      else if (argc == 3)
       {
-        uint16_t resolution = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting resolution to {0}",resolution);
-        iols.attenuator->set_resolution(resolution);
-      }
-      else if (std::string(argv[1]) == "set_idle_current")
-      {
-        uint16_t ic = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting idle current to {0}",ic);
-        iols.attenuator->set_idle_current(ic);
-      }
-      else if (std::string(argv[1]) == "set_move_current")
-      {
-        uint16_t mc = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting move current to {0}",mc);
-        iols.attenuator->set_moving_current(mc);
-      }
-      else if (std::string(argv[1]) == "set_acceleration")
-      {
-        uint16_t acc = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting acceleration to {0}",acc);
-        iols.attenuator->set_acceleration(acc);
-      }
-      else if (std::string(argv[1]) == "set_deceleration")
-      {
-        uint16_t dec = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting deceleration to {0}",dec);
-        iols.attenuator->set_deceleration(dec);
-      }
-      else if (std::string(argv[1]) == "set_max_speed")
-      {
-        uint32_t ms = std::strtol(argv[2],NULL,0);
-        spdlog::debug("Setting max speed to {0}",ms);
-        iols.attenuator->set_max_speed(ms);
+        if (std::string(argv[1]) == "move")
+        {
+          int32_t steps = std::strtol(argv[2],NULL,0);
+          int32_t final_pos;
+          spdlog::debug("Moving by {0} steps",steps);
+          iols.attenuator->move(steps,final_pos,true);
+          spdlog::info("Current position : {0}",final_pos);
+        }
+        else if (std::string(argv[1]) == "move_to")
+        {
+          int32_t set_pos = std::strtol(argv[2],NULL,0);
+          int32_t final_pos;
+          spdlog::debug("Moving to position {0}",set_pos);
+          iols.attenuator->go(set_pos,final_pos,true);
+          spdlog::info("Current position : {0}",final_pos);
+        }
+        else if (std::string(argv[1]) == "set_resolution")
+        {
+          uint16_t resolution = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting resolution to {0}",resolution);
+          iols.attenuator->set_resolution(resolution);
+        }
+        else if (std::string(argv[1]) == "set_idle_current")
+        {
+          uint16_t ic = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting idle current to {0}",ic);
+          iols.attenuator->set_idle_current(ic);
+        }
+        else if (std::string(argv[1]) == "set_move_current")
+        {
+          uint16_t mc = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting move current to {0}",mc);
+          iols.attenuator->set_moving_current(mc);
+        }
+        else if (std::string(argv[1]) == "set_acceleration")
+        {
+          uint16_t acc = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting acceleration to {0}",acc);
+          iols.attenuator->set_acceleration(acc);
+        }
+        else if (std::string(argv[1]) == "set_deceleration")
+        {
+          uint16_t dec = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting deceleration to {0}",dec);
+          iols.attenuator->set_deceleration(dec);
+        }
+        else if (std::string(argv[1]) == "set_max_speed")
+        {
+          uint32_t ms = std::strtol(argv[2],NULL,0);
+          spdlog::debug("Setting max speed to {0}",ms);
+          iols.attenuator->set_max_speed(ms);
+        }
+        else
+        {
+          spdlog::error("Unknown command {0}",argv[1]);
+          print_help();
+        }
       }
       else
       {
-        spdlog::error("Unknown command {0}",argv[1]);
+        spdlog::error("Unknown attenuator command");
         print_help();
       }
+      return 0;
+    }
+    else if(cmd == "power_meter")
+    {
+      spdlog::error("Power meter commands not yet implemented");
+      return 0;
     }
     else
     {
-      spdlog::error("Unknown attenuator command");
-      print_help();
+      spdlog::error("Unknown command");
+      return 0;
     }
-    return 0;
   }
-else if(cmd == "power_meter")
-{
-  spdlog::error("Power meter commands not yet implemented");
+  catch(serial::PortNotOpenedException &e)
+  {
+    spdlog::critical("Port not open exception : {0}",e.what());
+    return 1;
+  }
+  catch(serial::SerialException &e)
+  {
+    spdlog::critical("Serial exception : {0}",e.what());
+    return 1;
+  }
+  catch(std::exception &e)
+  {
+    spdlog::critical("STL exception : {0}",e.what());
+    return 1;
+  }
+  catch(...)
+  {
+    spdlog::critical("Caught an unexpected exception");
+    return 1;
+  }
   return 0;
-}
-else
-{
-  spdlog::error("Unknown command");
-  return 0;
-}
-return 0;
 }
 
 

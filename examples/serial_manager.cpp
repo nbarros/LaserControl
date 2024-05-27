@@ -440,47 +440,64 @@ int unmap_devices()
 void print_help()
 {
   spdlog::info("Available commands (note, commands without arguments print current settings):");
-  spdlog::info("  laser");
-  spdlog::info("    Obtain the DNA value from the FPGA silicon.");
-  spdlog::info("  dac [subcmd [subcmd_args]]");
-  spdlog::info("    Operates the DAC. Available subcommands:");
-  spdlog::info("      set <dac_level> (value between 0 and 4095)");
-  spdlog::info("      clear");
-  spdlog::info("  ext_trigger_enable [state]");
-  spdlog::info("    Enable external trigger connected on the SI1");
-  spdlog::info("  pulse_trigger_enable [state]");
-  spdlog::info("    Enable pulser 10 Hz pulser trigger");
-  spdlog::info("  sys_reset");
-  spdlog::info("    Resets everything that is not on the PDTS system");
-  spdlog::info("  pdts_reset");
-  spdlog::info("    Resets the PDTS system");
-  spdlog::info("  pdts [addr <addr>]");
-  spdlog::info("    Gets the current state of the PDTS system");
-  spdlog::info("  lbls [state <state>] [width <width>]");
-  spdlog::info("    Configure the LBLS trigger. Only one subcommand can be issued at a time");
-  spdlog::info("  align_config [width period]");
-  spdlog::info("    Config alignment laser");
-  spdlog::info("  align_enable [state]");
-  spdlog::info("    Enable/disable alignment laser");
-  spdlog::info("  motor_init [pi_1 pi_2 pi_3]");
-  spdlog::info("    Config the initial position of the motor (in the FPGA)");
-  spdlog::info("  laser_config [laser_config fire_state fire_width [fire_period] qs_state qs_width qs_delay]");
-  spdlog::info("    Configure the laser system in a single command. WARNING: Careful setting the fire_period");
-  spdlog::info("  fire_enable [state]");
-  spdlog::info("    Enable/disable laser FIRE ");
-  spdlog::info("  fire_config [width [period]]");
-  spdlog::info("    Configures the FIRE part of the laser");
-  spdlog::info("    WARNING: Do not edit the period, unless you know what you are doing");
-  spdlog::info("  qswitch_enable [state]");
-  spdlog::info("    Enable/disable laser QSWITCH ");
-  spdlog::info("  qswitch_config [width delay]");
-  spdlog::info("    Configures the QSWITCH part of the laser");
+  spdlog::info("  laser subcmd [args]");
+  spdlog::info("    Available subcomands:");
+  spdlog::info("      single_shot");
+  spdlog::info("        Fires a single shot");
+  spdlog::info("      shot_count");
+  spdlog::info("        Gets the shot count");
+  spdlog::info("      security");
+  spdlog::info("        Gets the security code and description");
+  spdlog::info("      fire_start");
+  spdlog::info("        Starts firing using the internal clock");
+  spdlog::info("      fire_stop");
+  spdlog::info("        Stops firing with the internal clock");
+  spdlog::info("      prescale <value>");
+  spdlog::info("        Sets the prescale");
+  spdlog::info("      division <value>");
+  spdlog::info("        Sets the pulse division");
+  spdlog::info("      hv <value>");
+  spdlog::info("        Sets the HV value (in kV as a float)");
+  spdlog::info("      qswitch <value>");
+  spdlog::info("        Sets qswitch value (in us)");
+  spdlog::info("  attenuator [subcmd [args]]");
+  spdlog::info("    Without arguments queries config");
+  spdlog::info("    Available subcomands:");
+  spdlog::info("      set_zero");
+  spdlog::info("        Set current position to zero");
+  spdlog::info("      stop");
+  spdlog::info("        Stops motor movement");
+  spdlog::info("      go_home");
+  spdlog::info("        Go to zero position");
+  spdlog::info("      get_position");
+  spdlog::info("        Gets current position");
+  spdlog::info("      reset");
+  spdlog::info("        Reset the controller");
+  spdlog::info("      get_settings");
+  spdlog::info("        Gets (and prints) the current settings");
+  spdlog::info("      move <value>");
+  spdlog::info("        Relative move by number of steps (positive or negative)");
+  spdlog::info("      move_to <value>");
+  spdlog::info("        Move to position");
+  spdlog::info("      set_resolution <value>");
+  spdlog::info("        Set resolution");
+  spdlog::info("      set_idle_current <value>");
+  spdlog::info("        Set idle current");
+  spdlog::info("      set_move_current <value>");
+  spdlog::info("        Set moving current");
+  spdlog::info("      set_acceleration <value>");
+  spdlog::info("        Set acceleration");
+  spdlog::info("      set_deceleration <value>");
+  spdlog::info("        Set deceleration");
+  spdlog::info("      set_max_speed <value>");
+  spdlog::info("        Set max speed");
+  spdlog::info("  power_meter");
+  spdlog::info("    ** This is not implemented yet **");
   spdlog::info("  help");
   spdlog::info("    Print this help");
   spdlog::info("  exit");
   spdlog::info("    Closes the command interface");
   spdlog::info("");
-  spdlog::info("Note: widths, periods and delays are all in 16 ns units. States are 1 or 0");
 
 }
 
@@ -571,12 +588,12 @@ int run_command(int argc, char** argv)
         spdlog::debug("Setting pump HV to {0}",hv);
         iols.laser->set_pump_voltage(hv);
       }
-      else if (std::string(argv[1]) == "set_rate")
-      {
-        float rate = std::stof(argv[2]);
-        spdlog::warn("Setting repetition rate to {0}",rate);
-        iols.laser->set_repetition_rate(rate);
-      }
+//      else if (std::string(argv[1]) == "set_rate")
+//      {
+//        float rate = std::stof(argv[2]);
+//        spdlog::warn("Setting repetition rate to {0}",rate);
+//        iols.laser->set_repetition_rate(rate);
+//      }
       else if (std::string(argv[1]) == "qswitch")
       {
         uint32_t qs = std::strtol(argv[2],NULL,0);

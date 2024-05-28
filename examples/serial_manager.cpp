@@ -128,6 +128,7 @@ int map_laser()
   return ret;
 }
 
+
 int query_attenuator_settings()
 {
   int ret = 0;
@@ -387,7 +388,6 @@ int map_devices()
   {
     spdlog::critical("Failed to initialize the attenuator");
   }
-
 
   spdlog::debug("Mapping the laser");
   ret = map_laser();
@@ -844,16 +844,17 @@ int main(int argc, char** argv)
   iols.laser = nullptr;
   iols.power_meter = nullptr;
 
-  iols.config.attenuator.serial_nr = ATT_SN;
-  iols.config.attenuator.baud_rate = 38400;
+//  iols.config.attenuator.serial_nr = ATT_SN;
+//  iols.config.attenuator.baud_rate = 38400;
 
   iols.config.laser.serial_nr = LASER_SN;
   iols.config.laser.baud_rate = 9600;
 
-  iols.config.power_meter.serial_nr = PM_SN;
-  iols.config.power_meter.baud_rate = 9600;
+//  iols.config.power_meter.serial_nr = PM_SN;
+//  iols.config.power_meter.baud_rate = 9600;
 
-  ret = map_devices();
+  //ret = map_devices();
+  ret = map_laser();
   if (ret != 0)
   {
     spdlog::critical("Failed to map devices. Clearing out.");

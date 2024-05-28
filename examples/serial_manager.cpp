@@ -62,7 +62,9 @@ iolaser_t iols;
 #define PM_SN     "A9CQTZ05"
 #define ATT_SN     "6ATT1788D"
 
-
+bool g_ignore_laser;
+bool g_ignore_pm;
+bool g_ignore_attenuator;
 //
 // Prototypes
 //
@@ -131,7 +133,13 @@ int map_laser()
 
 int query_attenuator_settings()
 {
+  if (g_ignore_attenuator)
+  {
+    spdlog::error("Attenuator is being ignored.No operations possible");
+    return 1;
+  }
   int ret = 0;
+
   if (iols.attenuator == nullptr)
   {
     spdlog::error("There is no open instance of the attenuator");
@@ -208,6 +216,18 @@ int query_attenuator_settings()
 int map_attenuator()
 {
   int ret = 0;
+  if (g_ignore_attenuator)
+  {
+    spdlog::error("Attenuator is being ignored.No operations possible");
+    return 1;
+  }
+
+  if (iols.attenuator == nullptr)
+  {
+    spdlog::error("There is no open instance of the attenuator");
+    return 1;
+  }
+
   spdlog::info("Initializing the attenuator");
   iols.config.attenuator.port = util::find_port(iols.config.attenuator.serial_nr);
   if (!iols.config.attenuator.port_valid())
@@ -260,6 +280,18 @@ int map_attenuator()
 int map_power_meter()
 {
   int ret = 0;
+  if (g_ignore_pm)
+  {
+    spdlog::error("Power Meter is being ignored.No operations possible");
+    return 1;
+  }
+
+  if (iols.power_meter == nullptr)
+  {
+    spdlog::error("There is no open instance of the power meter");
+    return 1;
+  }
+
   iols.config.power_meter.port = util::find_port(iols.config.power_meter.serial_nr);
   if (!iols.config.power_meter.port_valid())
   {
@@ -381,31 +413,66 @@ int map_power_meter()
 }
 int map_devices()
 {
-  int ret;
-  spdlog::debug("Mapping the attenuator");
-  ret = map_attenuator();
-  if (ret != 0)
+  int ret = 0;
+  if (g_ignore_attenuator)
   {
-    spdlog::critical("Failed to initialize the attenuator");
+    spdlog::warn("Attenuator is being ignored. Skipping mapping");
+  }
+  else
+  {
+    if (iols.attenuator == nullptr)
+    {
+      spdlog::error("There is no open instance of the attenuator");
+      return 1;
+    }
+
+    spdlog::debug("Mapping the attenuator");
+    ret = map_attenuator();
+    if (ret != 0)
+    {
+      spdlog::critical("Failed to initialize the attenuator");
+    }
   }
 
-  spdlog::debug("Mapping the laser");
-  ret = map_laser();
-  if (ret != 0)
+  if (g_ignore_laser)
   {
-    spdlog::critical("Failed to initalize the laser");
+    spdlog::warn("Laser is being ignored. Skipping mapping");
   }
-
-
-  spdlog::debug("Mapping the power meter");
-  ret = map_power_meter();
-  if (ret != 0)
+  else
   {
-    spdlog::critical("Failed a query to the power meter");
+    if (iols.laser == nullptr)
+    {
+      spdlog::error("There is no open instance of the laser");
+      return 1;
+    }
+
+    spdlog::debug("Mapping the laser");
+    ret = map_laser();
+    if (ret != 0)
+    {
+      spdlog::critical("Failed to initalize the laser");
+    }
+  }
+  if (g_ignore_pm)
+  {
+    spdlog::warn("Attenuator is being ignored.No operations possible");
+  }
+  else
+  {
+    if (iols.power_meter == nullptr)
+    {
+      spdlog::error("There is no open instance of the power meter");
+      return 1;
+    }
+
+    spdlog::debug("Mapping the power meter");
+    ret = map_power_meter();
+    if (ret != 0)
+    {
+      spdlog::critical("Failed a query to the power meter");
+    }
   }
   return ret;
-
-
 }
 
 int unmap_devices()
@@ -440,59 +507,68 @@ int unmap_devices()
 void print_help()
 {
   spdlog::info("Available commands (note, commands without arguments print current settings):");
-  spdlog::info("  laser subcmd [args]");
-  spdlog::info("    Available subcomands:");
-  spdlog::info("      single_shot");
-  spdlog::info("        Fires a single shot");
-  spdlog::info("      shot_count");
-  spdlog::info("        Gets the shot count");
-  spdlog::info("      security");
-  spdlog::info("        Gets the security code and description");
-  spdlog::info("      fire_start");
-  spdlog::info("        Starts firing using the internal clock");
-  spdlog::info("      fire_stop");
-  spdlog::info("        Stops firing with the internal clock");
-  spdlog::info("      prescale <value>");
-  spdlog::info("        Sets the prescale");
-  spdlog::info("      division <value>");
-  spdlog::info("        Sets the pulse division");
-  spdlog::info("      hv <value>");
-  spdlog::info("        Sets the HV value (in kV as a float)");
-  spdlog::info("      qswitch <value>");
-  spdlog::info("        Sets qswitch value (in us)");
-  spdlog::info("  attenuator [subcmd [args]]");
-  spdlog::info("    Without arguments queries config");
-  spdlog::info("    Available subcomands:");
-  spdlog::info("      set_zero");
-  spdlog::info("        Set current position to zero");
-  spdlog::info("      stop");
-  spdlog::info("        Stops motor movement");
-  spdlog::info("      go_home");
-  spdlog::info("        Go to zero position");
-  spdlog::info("      get_position");
-  spdlog::info("        Gets current position");
-  spdlog::info("      reset");
-  spdlog::info("        Reset the controller");
-  spdlog::info("      get_settings");
-  spdlog::info("        Gets (and prints) the current settings");
-  spdlog::info("      move <value>");
-  spdlog::info("        Relative move by number of steps (positive or negative)");
-  spdlog::info("      move_to <value>");
-  spdlog::info("        Move to position");
-  spdlog::info("      set_resolution <value>");
-  spdlog::info("        Set resolution");
-  spdlog::info("      set_idle_current <value>");
-  spdlog::info("        Set idle current");
-  spdlog::info("      set_move_current <value>");
-  spdlog::info("        Set moving current");
-  spdlog::info("      set_acceleration <value>");
-  spdlog::info("        Set acceleration");
-  spdlog::info("      set_deceleration <value>");
-  spdlog::info("        Set deceleration");
-  spdlog::info("      set_max_speed <value>");
-  spdlog::info("        Set max speed");
-  spdlog::info("  power_meter");
-  spdlog::info("    ** This is not implemented yet **");
+  if (!g_ignore_laser)
+  {
+    spdlog::info("  laser subcmd [args]");
+    spdlog::info("    Available subcomands:");
+    spdlog::info("      single_shot");
+    spdlog::info("        Fires a single shot");
+    spdlog::info("      shot_count");
+    spdlog::info("        Gets the shot count");
+    spdlog::info("      security");
+    spdlog::info("        Gets the security code and description");
+    spdlog::info("      fire_start");
+    spdlog::info("        Starts firing using the internal clock");
+    spdlog::info("      fire_stop");
+    spdlog::info("        Stops firing with the internal clock");
+    spdlog::info("      prescale <value>");
+    spdlog::info("        Sets the prescale");
+    spdlog::info("      division <value>");
+    spdlog::info("        Sets the pulse division");
+    spdlog::info("      hv <value>");
+    spdlog::info("        Sets the HV value (in kV as a float)");
+    spdlog::info("      qswitch <value>");
+    spdlog::info("        Sets qswitch value (in us)");
+  }
+  if (!g_ignore_attenuator)
+  {
+    spdlog::info("  attenuator [subcmd [args]]");
+    spdlog::info("    Without arguments queries config");
+    spdlog::info("    Available subcomands:");
+    spdlog::info("      set_zero");
+    spdlog::info("        Set current position to zero");
+    spdlog::info("      stop");
+    spdlog::info("        Stops motor movement");
+    spdlog::info("      go_home");
+    spdlog::info("        Go to zero position");
+    spdlog::info("      get_position");
+    spdlog::info("        Gets current position");
+    spdlog::info("      reset");
+    spdlog::info("        Reset the controller");
+    spdlog::info("      get_settings");
+    spdlog::info("        Gets (and prints) the current settings");
+    spdlog::info("      move <value>");
+    spdlog::info("        Relative move by number of steps (positive or negative)");
+    spdlog::info("      move_to <value>");
+    spdlog::info("        Move to position");
+    spdlog::info("      set_resolution <value>");
+    spdlog::info("        Set resolution");
+    spdlog::info("      set_idle_current <value>");
+    spdlog::info("        Set idle current");
+    spdlog::info("      set_move_current <value>");
+    spdlog::info("        Set moving current");
+    spdlog::info("      set_acceleration <value>");
+    spdlog::info("        Set acceleration");
+    spdlog::info("      set_deceleration <value>");
+    spdlog::info("        Set deceleration");
+    spdlog::info("      set_max_speed <value>");
+    spdlog::info("        Set max speed");
+  }
+  if (!g_ignore_pm)
+  {
+    spdlog::info("  power_meter");
+    spdlog::info("    ** This is not implemented yet **");
+  }
   spdlog::info("  help");
   spdlog::info("    Print this help");
   spdlog::info("  exit");
@@ -523,6 +599,16 @@ int run_command(int argc, char** argv)
     }
     else if (cmd == "laser")
     {
+      if (g_ignore_laser)
+      {
+        spdlog::error("Laser is being ignored.No operations possible");
+        return 0;
+      }
+      if (iols.laser == nullptr)
+      {
+        spdlog::error("There is no open instance of the laser");
+        return 0;
+      }
       int res = 0;
       if (argc == 2)
       {
@@ -616,6 +702,17 @@ int run_command(int argc, char** argv)
     }
     else if (cmd == "attenuator")
     {
+      if (g_ignore_attenuator)
+      {
+        spdlog::error("Attenuator is being ignored.No operations possible");
+        return 0;
+      }
+      if (iols.attenuator == nullptr)
+      {
+        spdlog::error("There is no open instance of the attenuator");
+        return 0;
+      }
+
       int res = 0;
       if (argc == 1)
       {
@@ -767,6 +864,16 @@ int run_command(int argc, char** argv)
     }
     else if(cmd == "power_meter")
     {
+      if (g_ignore_pm)
+      {
+        spdlog::error("Power meter is being ignored.No operations possible");
+        return 0;
+      }
+      if (iols.power_meter == nullptr)
+      {
+        spdlog::error("There is no open instance of the power meter");
+        return 0;
+      }
       spdlog::error("Power meter commands not yet implemented");
       return 0;
     }
@@ -807,11 +914,15 @@ int main(int argc, char** argv)
   spdlog::set_pattern("cib::serial : [%^%L%$] %v");
   spdlog::set_level(spdlog::level::trace); // Set global log level to info
 
+  // set default values for the control variables
+  g_ignore_laser = false;
+  g_ignore_attenuator = false;
+  g_ignore_pm = false;
 
   int c;
   opterr = 0;
   int report_level = SPDLOG_LEVEL_INFO;
-  while ((c = getopt (argc, argv, "v")) != -1)
+  while ((c = getopt (argc, argv, "vi:")) != -1)
   {
     switch (c)
     {
@@ -821,8 +932,32 @@ int main(int argc, char** argv)
           report_level--;
         }
         break;
+      case 'i':
+      {
+        if (std::string(optarg) == "laser")
+        {
+          spdlog::warn("Not operating the laser");
+          g_ignore_laser = true;
+        }
+        else if (std::string(optarg) == "attenuator")
+        {
+          spdlog::warn("Not operating the attenuator");
+          g_ignore_attenuator = true;
+        }
+        else if (std::string(optarg) == "power_meter")
+        {
+          spdlog::warn("Not operating the power meter");
+          g_ignore_pm = true;
+        }
+        else
+        {
+          spdlog::error("Unknown argument {0}",optarg);
+          return 0;
+        }
+        break;
+      }
       default: /* ? */
-        spdlog::warn("Usage: serial_manager [-v]  (repeated flags further increase verbosity)");
+        spdlog::warn("Usage: serial_manager [-v] [-i <device>]  \n(repeated -v flags further increase verbosity)\n device can be one of laser, attenuator, power_meter (repeated instances of the flag are accepted)");
         return 1;
     }
   }
@@ -844,17 +979,23 @@ int main(int argc, char** argv)
   iols.laser = nullptr;
   iols.power_meter = nullptr;
 
-//  iols.config.attenuator.serial_nr = ATT_SN;
-//  iols.config.attenuator.baud_rate = 38400;
-
-  iols.config.laser.serial_nr = LASER_SN;
-  iols.config.laser.baud_rate = 9600;
-
-//  iols.config.power_meter.serial_nr = PM_SN;
-//  iols.config.power_meter.baud_rate = 9600;
-
-  //ret = map_devices();
-  ret = map_laser();
+  if (!g_ignore_attenuator)
+  {
+    iols.config.attenuator.serial_nr = ATT_SN;
+    iols.config.attenuator.baud_rate = 38400;
+  }
+  if (!g_ignore_laser)
+  {
+    iols.config.laser.serial_nr = LASER_SN;
+    iols.config.laser.baud_rate = 9600;
+  }
+  if (!g_ignore_pm)
+  {
+    iols.config.power_meter.serial_nr = PM_SN;
+    iols.config.power_meter.baud_rate = 9600;
+  }
+  ret = map_devices();
+  //ret = map_laser();
   if (ret != 0)
   {
     spdlog::critical("Failed to map devices. Clearing out.");
@@ -902,6 +1043,7 @@ int main(int argc, char** argv)
       }
       if (ret != 0)
       {
+        spdlog::critical("Failed to run a command. Exiting.");
         unmap_devices();
         return ret;
       }

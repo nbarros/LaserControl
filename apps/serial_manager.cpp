@@ -16,6 +16,8 @@
 #include <spdlog/spdlog.h>
 #include <cerrno>
 #include <string>
+#include <map>
+
 extern "C"
 {
 #include <readline/readline.h>
@@ -277,35 +279,23 @@ int map_attenuator()
 
   return ret;
 }
-int map_power_meter()
+
+int query_power_meter_settings()
 {
-  int ret = 0;
-  if (g_ignore_pm)
+  if (g_ignore_attenuator)
   {
-    spdlog::error("Power Meter is being ignored.No operations possible");
+    spdlog::error("Attenuator is being ignored.No operations possible");
     return 1;
   }
+  int ret = 0;
 
   if (iols.power_meter == nullptr)
   {
-    spdlog::error("There is no open instance of the power meter");
+    spdlog::error("There is no open instance of the attenuator");
     return 1;
   }
-
-  iols.config.power_meter.port = util::find_port(iols.config.power_meter.serial_nr);
-  if (!iols.config.power_meter.port_valid())
-  {
-    spdlog::error("Failed to find PowerMeter. Expected to see a device with serial number {0}",iols.config.power_meter.serial_nr);
-    util::enumerate_ports();
-    return 1;
-  }
-  spdlog::trace("Found port {0}",iols.config.power_meter.port);
-
   try
   {
-    spdlog::trace("Creating device instance");
-    iols.power_meter = new device::PowerMeter(iols.config.power_meter.port.c_str(),iols.config.power_meter.baud_rate);
-    spdlog::trace("Instance created");
 
     // do some query on functionality
     spdlog::debug("Querying head information");
@@ -387,7 +377,70 @@ int map_power_meter()
     iols.power_meter->max_freq(u32);
     spdlog::debug("Answer : {0}",u32);
     spdlog::debug("Base assessments done. Can't test anything else without actually changing settings.\n\n\n\n");
+  }
+  catch(serial::PortNotOpenedException &e)
+  {
+    spdlog::critical("Port not open exception : {0}",e.what());
+    ret = 1;
+  }
+  catch(serial::SerialException &e)
+  {
+    spdlog::critical("Serial exception : {0}",e.what());
+    ret = 1;
+  }
+  catch(std::exception &e)
+  {
+    spdlog::critical("STL exception : {0}",e.what());
+    ret = 1;
+  }
+  catch(...)
+  {
+    spdlog::critical("Caught an unexpected exception");
+    ret = 1;
+  }
+  return ret;
+}
 
+int map_power_meter()
+{
+  int ret = 0;
+  if (g_ignore_pm)
+  {
+    spdlog::error("Power Meter is being ignored.No operations possible");
+    return 1;
+  }
+
+  if (iols.power_meter != nullptr)
+  {
+    spdlog::warn("There is already an open instance of the power meter");
+    return 0;
+  }
+
+  iols.config.power_meter.port = util::find_port(iols.config.power_meter.serial_nr);
+  if (!iols.config.power_meter.port_valid())
+  {
+    spdlog::error("Failed to find PowerMeter. Expected to see a device with serial number {0}",iols.config.power_meter.serial_nr);
+    util::enumerate_ports();
+    return 1;
+  }
+  spdlog::trace("Found port {0}",iols.config.power_meter.port);
+
+  try
+  {
+    spdlog::trace("Creating device instance");
+    iols.power_meter = new device::PowerMeter(iols.config.power_meter.port.c_str(),iols.config.power_meter.baud_rate);
+    spdlog::trace("Instance created");
+
+    ret = query_power_meter_settings();
+    if (ret != 0)
+    {
+      spdlog::error("Failed inital check on power meter");
+      ret = 1;
+    }
+    else
+    {
+      spdlog::info("Power meter initialization done.");
+    }
   }
   catch(serial::PortNotOpenedException &e)
   {
@@ -874,8 +927,296 @@ int run_command(int argc, char** argv)
         spdlog::error("There is no open instance of the power meter");
         return 0;
       }
-      spdlog::error("Power meter commands not yet implemented");
-      return 0;
+
+      int res = 0;
+      if (argc == 1)
+      {
+        res = query_power_meter_settings();
+        if (res != 0)
+        {
+          spdlog::error("Failed to query settings");
+          return 1;
+        }
+      }
+      if (argc == 3)
+      {
+        // commands that have no extra arguments
+        std::string subcmd(argv[1]);
+        std::string setting(argv[2]);
+        if (subcmd == "get")
+        {
+          spdlog::trace("We're querying something");
+          if (setting == "wavelength")
+          {
+            uint32_t current;
+            iols.power_meter->get_wavelength(current);
+            spdlog::info("WAVELENGTH : {0}",current);
+          }
+          else if (setting == "range")
+          {
+            int16_t current;
+            iols.power_meter->get_all_ranges(current);
+            spdlog::info("RANGE : {0}",current);
+            std::map<int16_t,std::string> rmap;
+            iols.power_meter->get_range_map(rmap);
+            spdlog::info("Valid entries: ");
+            for (auto item : rmap)
+            {
+              spdlog::info("{0} : [{1}]",item.first, item.second);
+            }
+          }
+          else if (setting == "pulse_width")
+          {
+            uint16_t current;
+            std::map<uint16_t,std::string> umap;
+            spdlog::trace("Checking pulse width options");
+            iols.power_meter->pulse_length(0, current);
+            iols.power_meter->get_pulse_map(umap);
+            spdlog::info("PULSE WIDTH : [{0}]", current);
+            spdlog::info("OPTIONS :");
+
+            for (auto item : umap)
+            {
+              spdlog::info("{0} : [{1}]", item.first,item.second);
+            }
+
+          }
+          else if (setting == "e_threshold")
+          {
+            uint16_t current, min, max;
+            iols.power_meter->query_user_threshold(current, min, max);
+            spdlog::info("E THRESHOLD : current {0} limits [{1}; {2}]",current,min,max);
+          }
+          else if (setting == "average_flag")
+          {
+            bool current;
+            iols.power_meter->get_average_flag(current);
+            spdlog::info("AVE FLAG : {0}",current);
+          }
+          else if (setting == "energy")
+          {
+            bool valid;
+            double energy;
+            valid = iols.power_meter->read_energy(energy);
+            if (!valid)
+            {
+              spdlog::info("No new measurement available");
+            }
+            else
+            {
+              spdlog::info("Energy : {0}",energy);
+            }
+          }
+          else if (setting == "average")
+          {
+            bool valid;
+            double average;
+            valid = iols.power_meter->read_average(average);
+            if (!valid)
+            {
+              spdlog::info("No new measurement available");
+            }
+            else
+            {
+              spdlog::info("Average : {0}",average);
+            }
+          }
+          else if (setting == "frequency")
+          {
+            double frequency;
+            iols.power_meter->send_frequency(frequency);
+            spdlog::info("Frequency : {0} Hz",frequency);
+          }
+          else if (setting == "unit")
+          {
+            std::string unit;
+            iols.power_meter->send_units_long(unit);
+            spdlog::info("Unit : {0}",unit);
+          }
+          else if (setting == "max")
+          {
+            double max;
+            iols.power_meter->send_max(max);
+            spdlog::info("Max reading in current range : {0}",max);
+          }
+          else if (setting == "trigger_window")
+          {
+            uint16_t window;
+            iols.power_meter->trigger_window(0,window);
+            spdlog::info("Trigger window : {0} us",window);
+          }
+          else
+          {
+            spdlog::error("Unknown command");
+          }
+        }
+        else
+        {
+          spdlog::error("Wrong number of arguments");
+        }
+      }
+      else if (argc == 4)
+      {
+        std::string subcmd(argv[1]);
+        std::string setting(argv[2]);
+        if (subcmd == "set")
+        {
+          spdlog::trace("We're setting something");
+          if (setting == "wavelength")
+          {
+            uint16_t val = std::strtol(argv[3],NULL,0);
+            bool success = false;
+            iols.power_meter->wavelength(val,success);
+            if (success)
+            {
+              spdlog::info("Wavelength set to  : {0}",val);
+            }
+            else
+            {
+              uint32_t current;
+              iols.power_meter->get_wavelength(current);
+              spdlog::error("Failed to set wavelength. Current setting {0}",current);
+              std::string answer;
+              iols.power_meter->get_all_wavelengths(answer);
+              spdlog::error("Valid options: {0}",answer);
+            }
+          }
+          else if (setting == "range")
+          {
+            int16_t val = std::strtol(argv[3],NULL,0);
+            bool success = false;
+            std::string answer;
+            iols.power_meter->set_range(val,success);
+            if (success)
+            {
+              spdlog::info("Range set to  : {0}",val);
+            }
+            else
+            {
+              int16_t current;
+              iols.power_meter->get_all_ranges(current);
+              spdlog::error("Failed to set range. Current setting {0}",current);
+              // but now we can get the range map and print it
+              spdlog::info("Valid range values:");
+              std::map<int16_t,std::string> ranges;
+              iols.power_meter->get_range_map(ranges);
+              for (auto item: ranges)
+              {
+                spdlog::info("{0} : {1}",item.first, item.second);
+              }
+            }
+          }
+          else if (setting == "average")
+          {
+            uint16_t current;
+            uint16_t val = std::strtol(argv[3], NULL, 0);
+            iols.power_meter->average_query(val, current);
+            if (val == current)
+            {
+              spdlog::info("Average query value set to {0}",val);
+            }
+            else
+            {
+              spdlog::error("Failed to set average query value to {0}. Current value : {1}",val,current);
+            }
+          }
+          else if (setting == "measurement_mode")
+          {
+            uint16_t current;
+            uint16_t val = std::strtol(argv[3],NULL,0);
+            spdlog::trace("Setting measurement mode to {0}",val);
+            iols.power_meter->measurement_mode(val,current);
+            if (val == current)
+            {
+              spdlog::info("Measurement mode set to : {0}",val);
+            }
+            else
+            {
+              spdlog::error("Failed to set measurement mode. CUrrent setting {0}",current);
+            }
+          }
+          else if (setting == "pulse_width")
+          {
+            uint16_t val,current;
+            spdlog::trace("Setting pulse width to {0}",val);
+            iols.power_meter->pulse_length(val,current);
+            if (val == current)
+            {
+              spdlog::info("Pulse length set to : {0}",val);
+            }
+            else
+            {
+              spdlog::error("Failed to set pulse length. Current setting {0}",current);
+            }
+          }
+          else if (setting == "threshold")
+          {
+            uint16_t val = std::strtol(argv[3], NULL, 0);
+            double real_val = val*0.01;
+            spdlog::trace("Setting threshold to {0} ({1}%)",val,real_val);
+            uint16_t current;
+            iols.power_meter->user_threshold(val,current);
+            if (val == current)
+            {
+              spdlog::info("User threshold set to {0} ({1}%)",val,real_val);
+            }
+            else
+            {
+              real_val = current*0.01;
+              spdlog::error("Failed to set threshold. Current value {0} ({1}%)",current,real_val);
+            }
+          }
+          else
+          {
+            spdlog::error("Unknown setting");
+          }
+        }
+        else
+        {
+          spdlog::error("Unknown subcommand");
+        }
+      }
+      else if (argc == 2)
+      {
+        std::string subcommand(argv[1]);
+        if (subcommand == "get_energy")
+        {
+          bool valid;
+          double energy;
+          valid = iols.power_meter->read_energy(energy);
+          if (!valid)
+          {
+            spdlog::info("No new measurement available");
+          }
+          else
+          {
+            spdlog::info("Energy : {0}",energy);
+          }
+        }
+        else if (subcommand == "get_average")
+        {
+          bool valid;
+          double average;
+          valid = iols.power_meter->read_average(average);
+          if (!valid)
+          {
+            spdlog::info("No new measurement available");
+          }
+          else
+          {
+            spdlog::info("Average : {0}",average);
+          }
+        }
+        else
+        {
+          spdlog::info("Unknown subcommand {0}",subcommand);
+        }
+      }
+      else
+      {
+        spdlog::error("Wrong number of arguments");
+        return 0;
+      }
     }
     else
     {

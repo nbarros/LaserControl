@@ -70,6 +70,12 @@ namespace device
     std::cout << "Device::read_cmd : Received " << nbytes << " bytes answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
 
+    // careful with the trim
+    // if for some reason the answer is not valid, we can hit an exception here
+    if (answer.size() > m_read_sfx.size())
+    {
+      std::cout << "Answer has less characters than expected [ (got) " << answer.size() << " vs " << m_read_sfx.size() << "]" << std::endl;
+    }
     // trim the suffix chars
     answer.erase(answer.size()-m_read_sfx.size());
   }

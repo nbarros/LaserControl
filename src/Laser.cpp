@@ -208,10 +208,28 @@ void Laser::get_shot_count(uint32_t &count)
 #ifdef DEBUG
   std::cout << "Laser::security : Received [" << lines.size() << "] answer tokens" << std::endl;
 #endif
-  // the second is the answer
-  resp = lines.at(1);
-  resp.erase(resp.size()-1);
-
+  if (lines.size() == 0)
+  {
+    std::cout << "Received no answer" << std::endl;
+    resp = "N/A";
+  }
+  if (lines.size() == 1)
+  {
+    resp = lines.at(0);
+    if (resp.size() > 0)
+    {
+      resp.erase(resp.size()-1);
+    }
+  }
+  else
+  {
+    // the second is the answer
+    resp = lines.at(1);
+    if (resp.size() > 0)
+    {
+      resp.erase(resp.size()-1);
+    }
+  }
 
    //   std::string resp = m_serial.readline(0xFFFF,m_com_sfx);
    //resp.erase(resp.size()-1);

@@ -33,6 +33,11 @@ extern "C"
 #include <Attenuator.hh>
 #include <PowerMeter.hh>
 
+#include <nlohmann/json.hpp>
+#include <fstream>
+
+using json = nlohmann::json;
+
 typedef struct iols_dev_t
 {
   std::string serial_nr;
@@ -60,9 +65,10 @@ typedef struct iolaser_t
 
 iolaser_t iols;
 
-#define LASER_SN  "A9J0G3SV"
-#define PM_SN     "A9CQTZ05"
-#define ATT_SN     "6ATT1788D"
+
+//#define LASER_SN  "A9J0G3SV"
+//#define PM_SN     "A9CQTZ05"
+//#define ATT_SN     "6ATT1788D"
 
 bool g_ignore_laser;
 bool g_ignore_pm;
@@ -77,6 +83,11 @@ int map_laser()
 {
   int ret = 0;
   spdlog::info("Initializing the laser");
+  if (iols.laser)
+  {
+    spdlog::error("Already have an instance of the laser. Not building a new one and risking failure.");
+    return 0;
+  }
   iols.config.laser.port = util::find_port(iols.config.laser.serial_nr);
   if (!iols.config.laser.port_valid())
   {
@@ -223,11 +234,10 @@ int map_attenuator()
     spdlog::error("Attenuator is being ignored.No operations possible");
     return 1;
   }
-
-  if (iols.attenuator == nullptr)
+  if (iols.attenuator)
   {
-    spdlog::error("There is no open instance of the attenuator");
-    return 1;
+    spdlog::error("Already have an instance of the attenuator. Not building a new one and risking failure.");
+    return 0;
   }
 
   spdlog::info("Initializing the attenuator");
@@ -473,18 +483,19 @@ int map_devices()
   }
   else
   {
-    if (iols.attenuator == nullptr)
-    {
-      spdlog::error("There is no open instance of the attenuator");
-      return 1;
-    }
-
     spdlog::debug("Mapping the attenuator");
     ret = map_attenuator();
     if (ret != 0)
     {
       spdlog::critical("Failed to initialize the attenuator");
     }
+
+    if (iols.attenuator == nullptr)
+    {
+      spdlog::error("There is no open instance of the attenuator");
+      return 1;
+    }
+
   }
 
   if (g_ignore_laser)
@@ -493,11 +504,6 @@ int map_devices()
   }
   else
   {
-    if (iols.laser == nullptr)
-    {
-      spdlog::error("There is no open instance of the laser");
-      return 1;
-    }
 
     spdlog::debug("Mapping the laser");
     ret = map_laser();
@@ -505,6 +511,12 @@ int map_devices()
     {
       spdlog::critical("Failed to initalize the laser");
     }
+    if (iols.laser == nullptr)
+    {
+      spdlog::error("There is no open instance of the laser");
+      return 1;
+    }
+
   }
   if (g_ignore_pm)
   {
@@ -512,17 +524,17 @@ int map_devices()
   }
   else
   {
-    if (iols.power_meter == nullptr)
-    {
-      spdlog::error("There is no open instance of the power meter");
-      return 1;
-    }
 
     spdlog::debug("Mapping the power meter");
     ret = map_power_meter();
     if (ret != 0)
     {
       spdlog::critical("Failed a query to the power meter");
+    }
+    if (iols.power_meter == nullptr)
+    {
+      spdlog::error("There is no open instance of the power meter");
+      return 1;
     }
   }
   return ret;
@@ -1255,6 +1267,9 @@ int main(int argc, char** argv)
   spdlog::set_pattern("cib::serial : [%^%L%$] %v");
   spdlog::set_level(spdlog::level::trace); // Set global log level to info
 
+  std::string config_file = "config.json";
+
+
   // set default values for the control variables
   g_ignore_laser = false;
   g_ignore_attenuator = false;
@@ -1263,7 +1278,7 @@ int main(int argc, char** argv)
   int c;
   opterr = 0;
   int report_level = SPDLOG_LEVEL_INFO;
-  while ((c = getopt (argc, argv, "vi:")) != -1)
+  while ((c = getopt (argc, argv, "vi:f:")) != -1)
   {
     switch (c)
     {
@@ -1297,8 +1312,14 @@ int main(int argc, char** argv)
         }
         break;
       }
+      case 'f':
+      {
+        config_file = std::string(optarg);
+        spdlog::warn("Overriding serial number configuration file to {0}",config_file);
+        break;
+      }
       default: /* ? */
-        spdlog::warn("Usage: serial_manager [-v] [-i <device>]  \n(repeated -v flags further increase verbosity)\n device can be one of laser, attenuator, power_meter (repeated instances of the flag are accepted)");
+        spdlog::warn("Usage: serial_manager [-v] [-i <device>] [-f <config_file>] \n(repeated -v flags further increase verbosity)\n device can be one of laser, attenuator, power_meter (repeated instances of the flag are accepted)");
         return 1;
     }
   }
@@ -1308,33 +1329,86 @@ int main(int argc, char** argv)
   spdlog::trace("Just testing a trace");
   spdlog::debug("Just testing a debug");
 
+  iols.attenuator = nullptr;
+  iols.laser = nullptr;
+  iols.power_meter = nullptr;
+
 
   // first enumerate the ports available
   spdlog::info("Enumerating the ports available with serial devices:");
   util::enumerate_ports();
 
+  // load serial numbers from config file
+  spdlog::info("Loading serial numbers from file [{0}]",config_file);
+
+  try
+  {
+    std::ifstream ifs(config_file);
+    if (!ifs.is_open())
+    {
+      spdlog::critical("Failed to load configuration file. Aborting.");
+      return 0;
+    }
+    json conf = json::parse(ifs);
+
+    spdlog::debug("Loaded config has {0} entries (expected 3)",conf.size());
+    if (conf.contains("attenuator"))
+    {
+      if (!g_ignore_attenuator)
+      {
+        iols.config.attenuator.serial_nr = conf["attenuator"];
+        spdlog::debug("Attenuator S/N set to [{0}]",iols.config.attenuator.serial_nr);
+        iols.config.attenuator.baud_rate = 38400;
+      }
+    }
+    else
+    {
+      spdlog::warn("Can't find attenuator S/N setting. Ignoring it.");
+      g_ignore_attenuator = true;
+    }
+    // laser
+    if (conf.contains("laser"))
+    {
+      if (!g_ignore_laser)
+      {
+        iols.config.laser.serial_nr = conf["laser"];
+        spdlog::debug("Laser S/N set to [{0}]",iols.config.laser.serial_nr);
+        iols.config.laser.baud_rate = 9600;
+      }
+    }
+    else
+    {
+      spdlog::warn("Can't find laser S/N setting. Ignoring it.");
+      g_ignore_laser = true;
+    }
+    // power_meter
+    if (conf.contains("power_meter"))
+    {
+      if (!g_ignore_pm)
+      {
+        iols.config.power_meter.serial_nr = conf["laser"];
+        spdlog::debug("Power meter S/N set to [{0}]",iols.config.power_meter.serial_nr);
+        iols.config.power_meter.baud_rate = 9600;
+      }
+    }
+    else
+    {
+      spdlog::warn("Can't find laser S/N setting. Ignoring it.");
+      g_ignore_pm = true;
+    }
+  }
+  catch(std::exception &e)
+  {
+    spdlog::critical("Failed to load and parse the configuration file. Aborting.");
+    return 0;
+  }
+
+
+
   // map the devices
   int ret = 0;
   spdlog::info("Mapping the devices");
-  iols.attenuator = nullptr;
-  iols.laser = nullptr;
-  iols.power_meter = nullptr;
 
-  if (!g_ignore_attenuator)
-  {
-    iols.config.attenuator.serial_nr = ATT_SN;
-    iols.config.attenuator.baud_rate = 38400;
-  }
-  if (!g_ignore_laser)
-  {
-    iols.config.laser.serial_nr = LASER_SN;
-    iols.config.laser.baud_rate = 9600;
-  }
-  if (!g_ignore_pm)
-  {
-    iols.config.power_meter.serial_nr = PM_SN;
-    iols.config.power_meter.baud_rate = 9600;
-  }
   ret = map_devices();
   //ret = map_laser();
   if (ret != 0)

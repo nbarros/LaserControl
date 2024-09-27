@@ -27,7 +27,7 @@ using std::string;
 #define log(m) log_msg("INFO",m,"")
 
 /* info from David
-Laser cable serial info: (/dev/ttyUSB2, FTDI USB Serial Converter FTC7LJXH, USB VID:PID=0403:6001 SNR=FTC7LJXH)
+Laser cable serial info: (/dev/ttyUSB2, FTDI USB Serial Converter A9J0G3SV, USB VID:PID=0403:6001 SNR=A9J0G3SV;
 Attenuator cable info: (/dev/ttyUSB0, Silicon Labs CP2102 USB to UART Bridge Controller 6ATT1538D, USB VID:PID=10c4:ea60 SNR=6ATT1538D)
 Energy meter cable info: (/dev/ttyUSB1, FTDI FT232R USB UART A9JR8MJT, USB VID:PID=0403:6001 SNR=A9JR8MJT)
 

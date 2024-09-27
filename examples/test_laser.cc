@@ -34,7 +34,7 @@ void test_laser(uint32_t timeout, std::string read_suffix)
                     << " and timeout [" << timeout << "] ms" << endl;
 
 
-  const std::string laser_sn = "FTC7LJXH";
+  const std::string laser_sn = "A9J0G3SV";
   std::string port = util::find_port(laser_sn.c_str());
   if (port.size() == 0)
   {

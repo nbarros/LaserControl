@@ -59,7 +59,7 @@ public:
    *
    * @param range
    */
-  void set_range(const int16_t range, std::string &answer);
+  void set_range(const int16_t range, bool &success);
   void get_range_fast(int16_t &range);
 
   /**

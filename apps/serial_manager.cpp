@@ -16,6 +16,8 @@
 #include <spdlog/spdlog.h>
 #include <cerrno>
 #include <string>
+#include <map>
+
 extern "C"
 {
 #include <readline/readline.h>
@@ -30,6 +32,11 @@ extern "C"
 #include <Laser.hh>
 #include <Attenuator.hh>
 #include <PowerMeter.hh>
+
+#include <nlohmann/json.hpp>
+#include <fstream>
+
+using json = nlohmann::json;
 
 typedef struct iols_dev_t
 {
@@ -58,11 +65,14 @@ typedef struct iolaser_t
 
 iolaser_t iols;
 
-#define LASER_SN  "A9J0G3SV"
-#define PM_SN     "A9CQTZ05"
-#define ATT_SN     "6ATT1788D"
 
+//#define LASER_SN  "A9J0G3SV"
+//#define PM_SN     "A9CQTZ05"
+//#define ATT_SN     "6ATT1788D"
 
+bool g_ignore_laser;
+bool g_ignore_pm;
+bool g_ignore_attenuator;
 //
 // Prototypes
 //
@@ -73,6 +83,11 @@ int map_laser()
 {
   int ret = 0;
   spdlog::info("Initializing the laser");
+  if (iols.laser)
+  {
+    spdlog::error("Already have an instance of the laser. Not building a new one and risking failure.");
+    return 0;
+  }
   iols.config.laser.port = util::find_port(iols.config.laser.serial_nr);
   if (!iols.config.laser.port_valid())
   {
@@ -131,7 +146,13 @@ int map_laser()
 
 int query_attenuator_settings()
 {
+  if (g_ignore_attenuator)
+  {
+    spdlog::error("Attenuator is being ignored.No operations possible");
+    return 1;
+  }
   int ret = 0;
+
   if (iols.attenuator == nullptr)
   {
     spdlog::error("There is no open instance of the attenuator");
@@ -208,6 +229,17 @@ int query_attenuator_settings()
 int map_attenuator()
 {
   int ret = 0;
+  if (g_ignore_attenuator)
+  {
+    spdlog::error("Attenuator is being ignored.No operations possible");
+    return 1;
+  }
+  if (iols.attenuator)
+  {
+    spdlog::error("Already have an instance of the attenuator. Not building a new one and risking failure.");
+    return 0;
+  }
+
   spdlog::info("Initializing the attenuator");
   iols.config.attenuator.port = util::find_port(iols.config.attenuator.serial_nr);
   if (!iols.config.attenuator.port_valid())
@@ -257,23 +289,23 @@ int map_attenuator()
 
   return ret;
 }
-int map_power_meter()
+
+int query_power_meter_settings()
 {
-  int ret = 0;
-  iols.config.power_meter.port = util::find_port(iols.config.power_meter.serial_nr);
-  if (!iols.config.power_meter.port_valid())
+  if (g_ignore_attenuator)
   {
-    spdlog::error("Failed to find PowerMeter. Expected to see a device with serial number {0}",iols.config.power_meter.serial_nr);
-    util::enumerate_ports();
+    spdlog::error("Attenuator is being ignored.No operations possible");
     return 1;
   }
-  spdlog::trace("Found port {0}",iols.config.power_meter.port);
+  int ret = 0;
 
+  if (iols.power_meter == nullptr)
+  {
+    spdlog::error("There is no open instance of the attenuator");
+    return 1;
+  }
   try
   {
-    spdlog::trace("Creating device instance");
-    iols.power_meter = new device::PowerMeter(iols.config.power_meter.port.c_str(),iols.config.power_meter.baud_rate);
-    spdlog::trace("Instance created");
 
     // do some query on functionality
     spdlog::debug("Querying head information");
@@ -355,7 +387,70 @@ int map_power_meter()
     iols.power_meter->max_freq(u32);
     spdlog::debug("Answer : {0}",u32);
     spdlog::debug("Base assessments done. Can't test anything else without actually changing settings.\n\n\n\n");
+  }
+  catch(serial::PortNotOpenedException &e)
+  {
+    spdlog::critical("Port not open exception : {0}",e.what());
+    ret = 1;
+  }
+  catch(serial::SerialException &e)
+  {
+    spdlog::critical("Serial exception : {0}",e.what());
+    ret = 1;
+  }
+  catch(std::exception &e)
+  {
+    spdlog::critical("STL exception : {0}",e.what());
+    ret = 1;
+  }
+  catch(...)
+  {
+    spdlog::critical("Caught an unexpected exception");
+    ret = 1;
+  }
+  return ret;
+}
 
+int map_power_meter()
+{
+  int ret = 0;
+  if (g_ignore_pm)
+  {
+    spdlog::error("Power Meter is being ignored.No operations possible");
+    return 1;
+  }
+
+  if (iols.power_meter != nullptr)
+  {
+    spdlog::warn("There is already an open instance of the power meter");
+    return 0;
+  }
+
+  iols.config.power_meter.port = util::find_port(iols.config.power_meter.serial_nr);
+  if (!iols.config.power_meter.port_valid())
+  {
+    spdlog::error("Failed to find PowerMeter. Expected to see a device with serial number {0}",iols.config.power_meter.serial_nr);
+    util::enumerate_ports();
+    return 1;
+  }
+  spdlog::trace("Found port {0}",iols.config.power_meter.port);
+
+  try
+  {
+    spdlog::trace("Creating device instance");
+    iols.power_meter = new device::PowerMeter(iols.config.power_meter.port.c_str(),iols.config.power_meter.baud_rate);
+    spdlog::trace("Instance created");
+
+    ret = query_power_meter_settings();
+    if (ret != 0)
+    {
+      spdlog::error("Failed inital check on power meter");
+      ret = 1;
+    }
+    else
+    {
+      spdlog::info("Power meter initialization done.");
+    }
   }
   catch(serial::PortNotOpenedException &e)
   {
@@ -381,31 +476,68 @@ int map_power_meter()
 }
 int map_devices()
 {
-  int ret;
-  spdlog::debug("Mapping the attenuator");
-  ret = map_attenuator();
-  if (ret != 0)
+  int ret = 0;
+  if (g_ignore_attenuator)
   {
-    spdlog::critical("Failed to initialize the attenuator");
+    spdlog::warn("Attenuator is being ignored. Skipping mapping");
+  }
+  else
+  {
+    spdlog::debug("Mapping the attenuator");
+    ret = map_attenuator();
+    if (ret != 0)
+    {
+      spdlog::critical("Failed to initialize the attenuator");
+    }
+
+    if (iols.attenuator == nullptr)
+    {
+      spdlog::error("There is no open instance of the attenuator");
+      return 1;
+    }
+
   }
 
-  spdlog::debug("Mapping the laser");
-  ret = map_laser();
-  if (ret != 0)
+  if (g_ignore_laser)
   {
-    spdlog::critical("Failed to initalize the laser");
+    spdlog::warn("Laser is being ignored. Skipping mapping");
   }
-
-
-  spdlog::debug("Mapping the power meter");
-  ret = map_power_meter();
-  if (ret != 0)
+  else
   {
-    spdlog::critical("Failed a query to the power meter");
+
+    spdlog::debug("Mapping the laser");
+    ret = map_laser();
+    if (ret != 0)
+    {
+      spdlog::critical("Failed to initalize the laser");
+    }
+    if (iols.laser == nullptr)
+    {
+      spdlog::error("There is no open instance of the laser");
+      return 1;
+    }
+
+  }
+  if (g_ignore_pm)
+  {
+    spdlog::warn("Attenuator is being ignored.No operations possible");
+  }
+  else
+  {
+
+    spdlog::debug("Mapping the power meter");
+    ret = map_power_meter();
+    if (ret != 0)
+    {
+      spdlog::critical("Failed a query to the power meter");
+    }
+    if (iols.power_meter == nullptr)
+    {
+      spdlog::error("There is no open instance of the power meter");
+      return 1;
+    }
   }
   return ret;
-
-
 }
 
 int unmap_devices()
@@ -440,59 +572,68 @@ int unmap_devices()
 void print_help()
 {
   spdlog::info("Available commands (note, commands without arguments print current settings):");
-  spdlog::info("  laser subcmd [args]");
-  spdlog::info("    Available subcomands:");
-  spdlog::info("      single_shot");
-  spdlog::info("        Fires a single shot");
-  spdlog::info("      shot_count");
-  spdlog::info("        Gets the shot count");
-  spdlog::info("      security");
-  spdlog::info("        Gets the security code and description");
-  spdlog::info("      fire_start");
-  spdlog::info("        Starts firing using the internal clock");
-  spdlog::info("      fire_stop");
-  spdlog::info("        Stops firing with the internal clock");
-  spdlog::info("      prescale <value>");
-  spdlog::info("        Sets the prescale");
-  spdlog::info("      division <value>");
-  spdlog::info("        Sets the pulse division");
-  spdlog::info("      hv <value>");
-  spdlog::info("        Sets the HV value (in kV as a float)");
-  spdlog::info("      qswitch <value>");
-  spdlog::info("        Sets qswitch value (in us)");
-  spdlog::info("  attenuator [subcmd [args]]");
-  spdlog::info("    Without arguments queries config");
-  spdlog::info("    Available subcomands:");
-  spdlog::info("      set_zero");
-  spdlog::info("        Set current position to zero");
-  spdlog::info("      stop");
-  spdlog::info("        Stops motor movement");
-  spdlog::info("      go_home");
-  spdlog::info("        Go to zero position");
-  spdlog::info("      get_position");
-  spdlog::info("        Gets current position");
-  spdlog::info("      reset");
-  spdlog::info("        Reset the controller");
-  spdlog::info("      get_settings");
-  spdlog::info("        Gets (and prints) the current settings");
-  spdlog::info("      move <value>");
-  spdlog::info("        Relative move by number of steps (positive or negative)");
-  spdlog::info("      move_to <value>");
-  spdlog::info("        Move to position");
-  spdlog::info("      set_resolution <value>");
-  spdlog::info("        Set resolution");
-  spdlog::info("      set_idle_current <value>");
-  spdlog::info("        Set idle current");
-  spdlog::info("      set_move_current <value>");
-  spdlog::info("        Set moving current");
-  spdlog::info("      set_acceleration <value>");
-  spdlog::info("        Set acceleration");
-  spdlog::info("      set_deceleration <value>");
-  spdlog::info("        Set deceleration");
-  spdlog::info("      set_max_speed <value>");
-  spdlog::info("        Set max speed");
-  spdlog::info("  power_meter");
-  spdlog::info("    ** This is not implemented yet **");
+  if (!g_ignore_laser)
+  {
+    spdlog::info("  laser subcmd [args]");
+    spdlog::info("    Available subcomands:");
+    spdlog::info("      single_shot");
+    spdlog::info("        Fires a single shot");
+    spdlog::info("      shot_count");
+    spdlog::info("        Gets the shot count");
+    spdlog::info("      security");
+    spdlog::info("        Gets the security code and description");
+    spdlog::info("      fire_start");
+    spdlog::info("        Starts firing using the internal clock");
+    spdlog::info("      fire_stop");
+    spdlog::info("        Stops firing with the internal clock");
+    spdlog::info("      prescale <value>");
+    spdlog::info("        Sets the prescale");
+    spdlog::info("      division <value>");
+    spdlog::info("        Sets the pulse division");
+    spdlog::info("      hv <value>");
+    spdlog::info("        Sets the HV value (in kV as a float)");
+    spdlog::info("      qswitch <value>");
+    spdlog::info("        Sets qswitch value (in us)");
+  }
+  if (!g_ignore_attenuator)
+  {
+    spdlog::info("  attenuator [subcmd [args]]");
+    spdlog::info("    Without arguments queries config");
+    spdlog::info("    Available subcomands:");
+    spdlog::info("      set_zero");
+    spdlog::info("        Set current position to zero");
+    spdlog::info("      stop");
+    spdlog::info("        Stops motor movement");
+    spdlog::info("      go_home");
+    spdlog::info("        Go to zero position");
+    spdlog::info("      get_position");
+    spdlog::info("        Gets current position");
+    spdlog::info("      reset");
+    spdlog::info("        Reset the controller");
+    spdlog::info("      get_settings");
+    spdlog::info("        Gets (and prints) the current settings");
+    spdlog::info("      move <value>");
+    spdlog::info("        Relative move by number of steps (positive or negative)");
+    spdlog::info("      move_to <value>");
+    spdlog::info("        Move to position");
+    spdlog::info("      set_resolution <value>");
+    spdlog::info("        Set resolution");
+    spdlog::info("      set_idle_current <value>");
+    spdlog::info("        Set idle current");
+    spdlog::info("      set_move_current <value>");
+    spdlog::info("        Set moving current");
+    spdlog::info("      set_acceleration <value>");
+    spdlog::info("        Set acceleration");
+    spdlog::info("      set_deceleration <value>");
+    spdlog::info("        Set deceleration");
+    spdlog::info("      set_max_speed <value>");
+    spdlog::info("        Set max speed");
+  }
+  if (!g_ignore_pm)
+  {
+    spdlog::info("  power_meter");
+    spdlog::info("    ** This is not implemented yet **");
+  }
   spdlog::info("  help");
   spdlog::info("    Print this help");
   spdlog::info("  exit");
@@ -523,6 +664,16 @@ int run_command(int argc, char** argv)
     }
     else if (cmd == "laser")
     {
+      if (g_ignore_laser)
+      {
+        spdlog::error("Laser is being ignored.No operations possible");
+        return 0;
+      }
+      if (iols.laser == nullptr)
+      {
+        spdlog::error("There is no open instance of the laser");
+        return 0;
+      }
       int res = 0;
       if (argc == 2)
       {
@@ -616,6 +767,17 @@ int run_command(int argc, char** argv)
     }
     else if (cmd == "attenuator")
     {
+      if (g_ignore_attenuator)
+      {
+        spdlog::error("Attenuator is being ignored.No operations possible");
+        return 0;
+      }
+      if (iols.attenuator == nullptr)
+      {
+        spdlog::error("There is no open instance of the attenuator");
+        return 0;
+      }
+
       int res = 0;
       if (argc == 1)
       {
@@ -767,8 +929,306 @@ int run_command(int argc, char** argv)
     }
     else if(cmd == "power_meter")
     {
-      spdlog::error("Power meter commands not yet implemented");
-      return 0;
+      if (g_ignore_pm)
+      {
+        spdlog::error("Power meter is being ignored.No operations possible");
+        return 0;
+      }
+      if (iols.power_meter == nullptr)
+      {
+        spdlog::error("There is no open instance of the power meter");
+        return 0;
+      }
+
+      int res = 0;
+      if (argc == 1)
+      {
+        res = query_power_meter_settings();
+        if (res != 0)
+        {
+          spdlog::error("Failed to query settings");
+          return 1;
+        }
+      }
+      if (argc == 3)
+      {
+        // commands that have no extra arguments
+        std::string subcmd(argv[1]);
+        std::string setting(argv[2]);
+        if (subcmd == "get")
+        {
+          spdlog::trace("We're querying something");
+          if (setting == "wavelength")
+          {
+            uint32_t current;
+            iols.power_meter->get_wavelength(current);
+            spdlog::info("WAVELENGTH : {0}",current);
+          }
+          else if (setting == "range")
+          {
+            int16_t current;
+            iols.power_meter->get_all_ranges(current);
+            spdlog::info("RANGE : {0}",current);
+            std::map<int16_t,std::string> rmap;
+            iols.power_meter->get_range_map(rmap);
+            spdlog::info("Valid entries: ");
+            for (auto item : rmap)
+            {
+              spdlog::info("{0} : [{1}]",item.first, item.second);
+            }
+          }
+          else if (setting == "pulse_width")
+          {
+            uint16_t current;
+            std::map<uint16_t,std::string> umap;
+            spdlog::trace("Checking pulse width options");
+            iols.power_meter->pulse_length(0, current);
+            iols.power_meter->get_pulse_map(umap);
+            spdlog::info("PULSE WIDTH : [{0}]", current);
+            spdlog::info("OPTIONS :");
+
+            for (auto item : umap)
+            {
+              spdlog::info("{0} : [{1}]", item.first,item.second);
+            }
+
+          }
+          else if (setting == "e_threshold")
+          {
+            uint16_t current, min, max;
+            iols.power_meter->query_user_threshold(current, min, max);
+            spdlog::info("E THRESHOLD : current {0} limits [{1}; {2}]",current,min,max);
+          }
+          else if (setting == "average_flag")
+          {
+            bool current;
+            iols.power_meter->get_average_flag(current);
+            spdlog::info("AVE FLAG : {0}",current);
+          }
+          else if (setting == "energy")
+          {
+            bool valid;
+            double energy;
+            valid = iols.power_meter->read_energy(energy);
+            if (!valid)
+            {
+              spdlog::info("No new measurement available");
+            }
+            else
+            {
+              spdlog::info("Energy : {0}",energy);
+            }
+          }
+          else if (setting == "average")
+          {
+            bool valid;
+            double average;
+            valid = iols.power_meter->read_average(average);
+            if (!valid)
+            {
+              spdlog::info("No new measurement available");
+            }
+            else
+            {
+              spdlog::info("Average : {0}",average);
+            }
+          }
+          else if (setting == "frequency")
+          {
+            double frequency;
+            iols.power_meter->send_frequency(frequency);
+            spdlog::info("Frequency : {0} Hz",frequency);
+          }
+          else if (setting == "unit")
+          {
+            std::string unit;
+            iols.power_meter->send_units_long(unit);
+            spdlog::info("Unit : {0}",unit);
+          }
+          else if (setting == "max")
+          {
+            double max;
+            iols.power_meter->send_max(max);
+            spdlog::info("Max reading in current range : {0}",max);
+          }
+          else if (setting == "trigger_window")
+          {
+            uint16_t window;
+            iols.power_meter->trigger_window(0,window);
+            spdlog::info("Trigger window : {0} us",window);
+          }
+          else
+          {
+            spdlog::error("Unknown command");
+          }
+        }
+        else
+        {
+          spdlog::error("Wrong number of arguments");
+        }
+      }
+      else if (argc == 4)
+      {
+        std::string subcmd(argv[1]);
+        std::string setting(argv[2]);
+        if (subcmd == "set")
+        {
+          spdlog::trace("We're setting something");
+          if (setting == "wavelength")
+          {
+            uint16_t val = std::strtol(argv[3],NULL,0);
+            bool success = false;
+            iols.power_meter->wavelength(val,success);
+            if (success)
+            {
+              spdlog::info("Wavelength set to  : {0}",val);
+            }
+            else
+            {
+              uint32_t current;
+              iols.power_meter->get_wavelength(current);
+              spdlog::error("Failed to set wavelength. Current setting {0}",current);
+              std::string answer;
+              iols.power_meter->get_all_wavelengths(answer);
+              spdlog::error("Valid options: {0}",answer);
+            }
+          }
+          else if (setting == "range")
+          {
+            int16_t val = std::strtol(argv[3],NULL,0);
+            bool success = false;
+            std::string answer;
+            iols.power_meter->set_range(val,success);
+            if (success)
+            {
+              spdlog::info("Range set to  : {0}",val);
+            }
+            else
+            {
+              int16_t current;
+              iols.power_meter->get_all_ranges(current);
+              spdlog::error("Failed to set range. Current setting {0}",current);
+              // but now we can get the range map and print it
+              spdlog::info("Valid range values:");
+              std::map<int16_t,std::string> ranges;
+              iols.power_meter->get_range_map(ranges);
+              for (auto item: ranges)
+              {
+                spdlog::info("{0} : {1}",item.first, item.second);
+              }
+            }
+          }
+          else if (setting == "average")
+          {
+            uint16_t current;
+            uint16_t val = std::strtol(argv[3], NULL, 0);
+            iols.power_meter->average_query(val, current);
+            if (val == current)
+            {
+              spdlog::info("Average query value set to {0}",val);
+            }
+            else
+            {
+              spdlog::error("Failed to set average query value to {0}. Current value : {1}",val,current);
+            }
+          }
+          else if (setting == "measurement_mode")
+          {
+            uint16_t current;
+            uint16_t val = std::strtol(argv[3],NULL,0);
+            spdlog::trace("Setting measurement mode to {0}",val);
+            iols.power_meter->measurement_mode(val,current);
+            if (val == current)
+            {
+              spdlog::info("Measurement mode set to : {0}",val);
+            }
+            else
+            {
+              spdlog::error("Failed to set measurement mode. CUrrent setting {0}",current);
+            }
+          }
+          else if (setting == "pulse_width")
+          {
+            uint16_t val,current;
+            spdlog::trace("Setting pulse width to {0}",val);
+            iols.power_meter->pulse_length(val,current);
+            if (val == current)
+            {
+              spdlog::info("Pulse length set to : {0}",val);
+            }
+            else
+            {
+              spdlog::error("Failed to set pulse length. Current setting {0}",current);
+            }
+          }
+          else if (setting == "threshold")
+          {
+            uint16_t val = std::strtol(argv[3], NULL, 0);
+            double real_val = val*0.01;
+            spdlog::trace("Setting threshold to {0} ({1}%)",val,real_val);
+            uint16_t current;
+            iols.power_meter->user_threshold(val,current);
+            if (val == current)
+            {
+              spdlog::info("User threshold set to {0} ({1}%)",val,real_val);
+            }
+            else
+            {
+              real_val = current*0.01;
+              spdlog::error("Failed to set threshold. Current value {0} ({1}%)",current,real_val);
+            }
+          }
+          else
+          {
+            spdlog::error("Unknown setting");
+          }
+        }
+        else
+        {
+          spdlog::error("Unknown subcommand");
+        }
+      }
+      else if (argc == 2)
+      {
+        std::string subcommand(argv[1]);
+        if (subcommand == "get_energy")
+        {
+          bool valid;
+          double energy;
+          valid = iols.power_meter->read_energy(energy);
+          if (!valid)
+          {
+            spdlog::info("No new measurement available");
+          }
+          else
+          {
+            spdlog::info("Energy : {0}",energy);
+          }
+        }
+        else if (subcommand == "get_average")
+        {
+          bool valid;
+          double average;
+          valid = iols.power_meter->read_average(average);
+          if (!valid)
+          {
+            spdlog::info("No new measurement available");
+          }
+          else
+          {
+            spdlog::info("Average : {0}",average);
+          }
+        }
+        else
+        {
+          spdlog::info("Unknown subcommand {0}",subcommand);
+        }
+      }
+      else
+      {
+        spdlog::error("Wrong number of arguments");
+        return 0;
+      }
     }
     else
     {
@@ -807,11 +1267,18 @@ int main(int argc, char** argv)
   spdlog::set_pattern("cib::serial : [%^%L%$] %v");
   spdlog::set_level(spdlog::level::trace); // Set global log level to info
 
+  std::string config_file = "config.json";
+
+
+  // set default values for the control variables
+  g_ignore_laser = false;
+  g_ignore_attenuator = false;
+  g_ignore_pm = false;
 
   int c;
   opterr = 0;
   int report_level = SPDLOG_LEVEL_INFO;
-  while ((c = getopt (argc, argv, "v")) != -1)
+  while ((c = getopt (argc, argv, "vi:f:")) != -1)
   {
     switch (c)
     {
@@ -821,8 +1288,38 @@ int main(int argc, char** argv)
           report_level--;
         }
         break;
+      case 'i':
+      {
+        if (std::string(optarg) == "laser")
+        {
+          spdlog::warn("Not operating the laser");
+          g_ignore_laser = true;
+        }
+        else if (std::string(optarg) == "attenuator")
+        {
+          spdlog::warn("Not operating the attenuator");
+          g_ignore_attenuator = true;
+        }
+        else if (std::string(optarg) == "power_meter")
+        {
+          spdlog::warn("Not operating the power meter");
+          g_ignore_pm = true;
+        }
+        else
+        {
+          spdlog::error("Unknown argument {0}",optarg);
+          return 0;
+        }
+        break;
+      }
+      case 'f':
+      {
+        config_file = std::string(optarg);
+        spdlog::warn("Overriding serial number configuration file to {0}",config_file);
+        break;
+      }
       default: /* ? */
-        spdlog::warn("Usage: serial_manager [-v]  (repeated flags further increase verbosity)");
+        spdlog::warn("Usage: serial_manager [-v] [-i <device>] [-f <config_file>] \n(repeated -v flags further increase verbosity)\n device can be one of laser, attenuator, power_meter (repeated instances of the flag are accepted)");
         return 1;
     }
   }
@@ -832,29 +1329,88 @@ int main(int argc, char** argv)
   spdlog::trace("Just testing a trace");
   spdlog::debug("Just testing a debug");
 
+  iols.attenuator = nullptr;
+  iols.laser = nullptr;
+  iols.power_meter = nullptr;
+
 
   // first enumerate the ports available
   spdlog::info("Enumerating the ports available with serial devices:");
   util::enumerate_ports();
 
+  // load serial numbers from config file
+  spdlog::info("Loading serial numbers from file [{0}]",config_file);
+
+  try
+  {
+    std::ifstream ifs(config_file);
+    if (!ifs.is_open())
+    {
+      spdlog::critical("Failed to load configuration file. Aborting.");
+      return 0;
+    }
+    json conf = json::parse(ifs);
+
+    spdlog::debug("Loaded config has {0} entries (expected 3)",conf.size());
+    if (conf.contains("attenuator"))
+    {
+      if (!g_ignore_attenuator)
+      {
+        iols.config.attenuator.serial_nr = conf["attenuator"];
+        spdlog::debug("Attenuator S/N set to [{0}]",iols.config.attenuator.serial_nr);
+        iols.config.attenuator.baud_rate = 38400;
+      }
+    }
+    else
+    {
+      spdlog::warn("Can't find attenuator S/N setting. Ignoring it.");
+      g_ignore_attenuator = true;
+    }
+    // laser
+    if (conf.contains("laser"))
+    {
+      if (!g_ignore_laser)
+      {
+        iols.config.laser.serial_nr = conf["laser"];
+        spdlog::debug("Laser S/N set to [{0}]",iols.config.laser.serial_nr);
+        iols.config.laser.baud_rate = 9600;
+      }
+    }
+    else
+    {
+      spdlog::warn("Can't find laser S/N setting. Ignoring it.");
+      g_ignore_laser = true;
+    }
+    // power_meter
+    if (conf.contains("power_meter"))
+    {
+      if (!g_ignore_pm)
+      {
+        iols.config.power_meter.serial_nr = conf["laser"];
+        spdlog::debug("Power meter S/N set to [{0}]",iols.config.power_meter.serial_nr);
+        iols.config.power_meter.baud_rate = 9600;
+      }
+    }
+    else
+    {
+      spdlog::warn("Can't find laser S/N setting. Ignoring it.");
+      g_ignore_pm = true;
+    }
+  }
+  catch(std::exception &e)
+  {
+    spdlog::critical("Failed to load and parse the configuration file. Aborting.");
+    return 0;
+  }
+
+
+
   // map the devices
   int ret = 0;
   spdlog::info("Mapping the devices");
-  iols.attenuator = nullptr;
-  iols.laser = nullptr;
-  iols.power_meter = nullptr;
 
-//  iols.config.attenuator.serial_nr = ATT_SN;
-//  iols.config.attenuator.baud_rate = 38400;
-
-  iols.config.laser.serial_nr = LASER_SN;
-  iols.config.laser.baud_rate = 9600;
-
-//  iols.config.power_meter.serial_nr = PM_SN;
-//  iols.config.power_meter.baud_rate = 9600;
-
-  //ret = map_devices();
-  ret = map_laser();
+  ret = map_devices();
+  //ret = map_laser();
   if (ret != 0)
   {
     spdlog::critical("Failed to map devices. Clearing out.");
@@ -902,6 +1458,7 @@ int main(int argc, char** argv)
       }
       if (ret != 0)
       {
+        spdlog::critical("Failed to run a command. Exiting.");
         unmap_devices();
         return ret;
       }

@@ -89,8 +89,8 @@ add_executable(probe_serial_ports ${PROJECT_SOURCE_DIR}/src/probe_ports.cc)
 target_link_libraries(probe_serial_ports PUBLIC LaserControl)
 
 
-add_executable(serial_manager ${PROJECT_SOURCE_DIR}/examples/serial_manager.cpp)
-target_link_libraries(serial_manager PUBLIC LaserControl spdlog readline)
+#add_executable(serial_manager ${PROJECT_SOURCE_DIR}/apps/serial_manager.cpp)
+#target_link_libraries(serial_manager PUBLIC LaserControl spdlog readline)
 
 add_executable(test_all_devices EXCLUDE_FROM_ALL examples/test_all_devices.cc)
 target_link_libraries(test_all_devices PUBLIC LaserControl)
@@ -103,3 +103,6 @@ target_link_libraries(test_laser PUBLIC LaserControl)
 
 add_executable(test_pm EXCLUDE_FROM_ALL examples/test_powermeter.cc)
 target_link_libraries(test_pm PUBLIC LaserControl)
+
+add_subdirectory(apps)
+

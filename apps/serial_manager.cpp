@@ -1386,7 +1386,7 @@ int main(int argc, char** argv)
     {
       if (!g_ignore_pm)
       {
-        iols.config.power_meter.serial_nr = conf["laser"];
+        iols.config.power_meter.serial_nr = conf["power_meter"];
         spdlog::debug("Power meter S/N set to [{0}]",iols.config.power_meter.serial_nr);
         iols.config.power_meter.baud_rate = 9600;
       }

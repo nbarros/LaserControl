@@ -32,7 +32,7 @@ namespace device {
     m_read_sfx= "\r\n";
     // initialize to something unrealistic
     m_threshold_ranges = {0xFFFF,0xFFFF};
-    m_timeout_ms = 100;
+    m_timeout_ms = 500;
 
     // initialize the serial connection
     m_serial.setPort(m_comport);

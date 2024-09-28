@@ -77,7 +77,9 @@ namespace device
 #ifdef DEBUG
       std::cout << "Answer has less characters than expected [ (got) " << answer.size() << " vs " << m_read_sfx.size() << "]" << std::endl;
 #endif
-
+      // in this case just trim special chars
+      std::string ta =  util::rtrim(answer);
+      answer = ta;
     }
     else
     {

@@ -190,8 +190,3 @@ std::string serialize_map(const std::map<int16_t,std::string> m)
   return serial_map<int16_t>(m);
 }
 
-
-
-
-}
-

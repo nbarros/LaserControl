@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <serial/serial.h>
 
-#define DEBUG 1
+//#define DEBUG 1
 namespace device
 {
 

@@ -66,7 +66,7 @@ else()
 endif()
 
 
-add_definitions(-DDEBUG)
+#add_definitions(-DDEBUG)
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
 target_include_directories(LaserControl PUBLIC ${PROJECT_SOURCE_DIR}/include)

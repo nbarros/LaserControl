@@ -72,13 +72,19 @@ namespace device
 
     // careful with the trim
     // if for some reason the answer is not valid, we can hit an exception here
-    if (answer.size() > m_read_sfx.size())
+    if (answer.size() < m_read_sfx.size())
     {
+#ifdef DEBUG
       std::cout << "Answer has less characters than expected [ (got) " << answer.size() << " vs " << m_read_sfx.size() << "]" << std::endl;
+#endif
+
     }
-    // trim the suffix chars
-    answer.erase(answer.size()-m_read_sfx.size());
-  }
+    else
+    {
+      // trim the suffix chars
+      answer.erase(answer.size()-m_read_sfx.size());
+    }
+   }
 
 
   void Device::set_timeout_ms(uint32_t t)
@@ -99,6 +105,10 @@ namespace device
     lines = m_serial.readlines(0xFFFF,m_read_sfx);
   #ifdef DEBUG
     std::cout << "Device::read_lines : Received " << lines.size() << " strings" << std::endl;
+    for (auto entry: lines)
+    {
+      std::cout << "[" << util::escape(entry.c_str()) << "]" << std::endl;
+    }
   #endif
 
   }

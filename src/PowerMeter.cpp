@@ -12,6 +12,8 @@
 #include <thread>
 #include <chrono>
 
+#define DEBUG 1
+
 namespace device {
 
   PowerMeter::PowerMeter (const char* port, const uint32_t baud_rate)

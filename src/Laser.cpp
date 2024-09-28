@@ -15,6 +15,7 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#define DEBUG 1
 
 namespace device {
 

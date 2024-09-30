@@ -32,7 +32,7 @@ namespace device {
     m_read_sfx= "\r\n";
     // initialize to something unrealistic
     m_threshold_ranges = {0xFFFF,0xFFFF};
-    m_timeout_ms = 500;
+    m_timeout_ms = 1000;
 
     // initialize the serial connection
     m_serial.setPort(m_comport);
@@ -1006,30 +1006,53 @@ namespace device {
 #endif
       return;
     }
-    // -- if it didn't fail, just continue
-    // first strip the return byte
-    rr = rr.substr(1);
-    // now tokenize the answer
-    std::vector<std::string> tokens;
-    util::tokenize_string(rr, tokens, " ");
+    else
+    {
+      // confirm that we do have a success
+      if (rr.at(0) == '*')
+      {
+        // -- if it didn't fail, just continue
+        // first strip the return byte
+        rr = rr.substr(1);
+        // now tokenize the answer
+        std::vector<std::string> tokens;
+        util::tokenize_string(rr, tokens, " ");
+    #ifdef DEBUG
+        std::cout << "PowerMeter::user_threshold : Tokens : " << tokens.size() << ":" << std::endl;
+        for (auto t: tokens)
+        {
+          std::cout << t << std::endl;
+        }
+    #endif
+        if (tokens.size() == 3)
+        {
+          // this should be the usually expected anwer
+          answer = std::stoul(tokens.at(0)) & 0xFFFF;
+          m_e_threshold = answer;
 
+          if (m_threshold_ranges.second == 0xFFFF)
+          {
+            // it has not been set yet
+            uint16_t min = std::stoul(tokens.at(1)) & 0xFFFF;
+            m_threshold_ranges.first = min;
+            uint16_t  max = std::stoul(tokens.at(2)) & 0xFFFF;
+            m_threshold_ranges.second = max;
+          }
+        }
+        else
+        {
+          // setting was successful but for whatever reason didn't receive the expected answer.
+          uint16_t min,max;
+          query_user_threshold(answer,min,max);
+        }
+      }
+      else
+      {
+        // this should never happen.
 #ifdef DEBUG
-    std::cout << "PowerMeter::user_threshold : Tokens : " << std::endl;
-    for (auto t: tokens)
-    {
-      std::cout << t << std::endl;
-    }
+        std::cout << "Got an unexpected answer...what is going on?" << std::endl;
 #endif
-    answer = std::stoul(tokens.at(0)) & 0xFFFF;
-    m_e_threshold = answer;
-
-    if (m_threshold_ranges.second == 0xFFFF)
-    {
-      // it has not been set yet
-      uint16_t min = std::stoul(tokens.at(1)) & 0xFFFF;
-      m_threshold_ranges.first = min;
-      uint16_t  max = std::stoul(tokens.at(2)) & 0xFFFF;
-      m_threshold_ranges.second = max;
+      }
     }
   }
 

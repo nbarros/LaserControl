@@ -62,7 +62,8 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   m_serial.setBytesize(serial::eightbits);
   m_serial.setParity(serial::parity_none);
   m_serial.setStopbits(serial::stopbits_one);
-
+  serial::Timeout t = serial::Timeout::simpleTimeout(m_timeout_ms);
+  m_serial.setTimeout(t);
   m_serial.open();
   if (!m_serial.isOpen())
   {
@@ -338,6 +339,9 @@ void Laser::set_repetition_rate(float rate)
   std::cout << "Laser::set_repetition_rate : submitting command [" << cmd.str() << "]." << std::endl;
 #endif
   write_cmd(cmd.str());
+#ifdef DEBUG
+  std::cout << "Laser::set_repetition_rate : Command written" << std::endl;
+#endif
   m_rate = rate;
 
 }
@@ -369,6 +373,7 @@ void Laser::write_cmd(const std::string cmd)
   // add an interval of 50ms between commands
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 #ifdef DEBUG
+    printf("Passed here\n");
     std::cout << "Laser::write_cmd : Command submitted (" << util::escape(cmd.c_str()) << ")." << std::endl;
 #endif
 

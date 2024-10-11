@@ -9,7 +9,7 @@
 #include <thread>
 #include <chrono>
 #include <utilities.hh>
-#define DEBUG 1
+//#define DEBUG 1
 
 #ifdef DEBUG
 #include <iostream>

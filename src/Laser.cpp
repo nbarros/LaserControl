@@ -369,7 +369,7 @@ void Laser::set_qswitch(uint32_t qs)
 void Laser::write_cmd(const std::string cmd)
 {
   Device::write_cmd(cmd);
-  printf("Exit from write_cmd. Going to sleep for a bit\n");
+//  printf("Exit from write_cmd. Going to sleep for a bit\n");
 
   // attenuator instruction on page 31 say that we need to
   // add an interval of 50ms between commands

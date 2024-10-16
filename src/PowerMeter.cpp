@@ -32,6 +32,7 @@ namespace device {
     m_read_sfx= "\r\n";
     // initialize to something unrealistic
     m_threshold_ranges = {0xFFFF,0xFFFF};
+    // this timeout is insane...
     m_timeout_ms = 1000;
 
     // initialize the serial connection

@@ -297,6 +297,8 @@ public:
  void get_reset_on_zero(bool &r) {r = m_reset_on_zero;}
  void get_report_on_zero(bool &r) { r = m_report_on_zero;}
 
+ void set_cal_parameters(const int offset, const double scale) {m_cal_offset = offset; m_cal_scale = scale;}
+ void get_cal_parameters(int &offset, double &scale) {offset = m_cal_offset; scale = m_cal_scale;}
 private:
 
   /**

@@ -31,6 +31,8 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
   m_reset_on_zero(false),
   m_report_on_zero(false),
   m_serial_number("unknown")
+  ,m_cal_scale(-43.3333)
+  ,m_cal_offset(3900)
   {
   // -- the attenuator is weird, as the termination of the
   // answers/reads is not the same as the
@@ -415,7 +417,7 @@ void Attenuator::get_position(int32_t &position, enum MotorState &status, bool w
 }
 
 
-void Attenuator::set_transmission(const float trans, bool wait)
+void Attenuator::set_transmission(const double trans, bool &success,bool wait)
 {
   // first convert transmission range [0.0] to steps
   if ((trans < 0.0) || (trans > 1.00))
@@ -425,6 +427,7 @@ void Attenuator::set_transmission(const float trans, bool wait)
 #ifdef DEBUG
     std::cout << msg.str() << std::endl;
 #endif
+    success = false;
     throw std::range_error(msg.str());
   }
 
@@ -437,6 +440,10 @@ void Attenuator::set_transmission(const float trans, bool wait)
     go(steps,p,wait);
 }
 
+void Attenuator::get_transmission(double &transmission)
+{
+  transmission = steps_to_trans(m_position);
+}
 
 void Attenuator::save_settings()
 {
@@ -518,14 +525,15 @@ void Attenuator::get_resolution(uint16_t &res)
 ////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////
 
-const int32_t Attenuator::trans_to_steps(const float trans)
+const int32_t Attenuator::trans_to_steps(const double trans)
 {
   //TODO: Re-write this using the stepping configuration
   // the formula actually changes
   //FIXME: Cross-check the offset calculation
-
-  float steps = -43.333333 * 180/M_PI * std::acos(std::sqrt(trans));
-  int32_t res = static_cast<int32_t>(steps)+m_offset+3900; //Same as above, this assumes default microstepping resolution. See Manual for more.
+  // m_cal_scale = -43.333333
+  // m_cal_offset    =  3900
+  double steps = m_cal_scale * 180/M_PI * std::acos(std::sqrt(trans));
+  int32_t res = static_cast<int32_t>(steps)+m_offset+m_cal_offset; //Same as above, this assumes default microstepping resolution. See Manual for more.
 #ifdef DEBUG
     std::cout << "Attenuator::trans_to_steps :  trans ["
         << trans << "] --> steps [" << res << "]" << std::endl;
@@ -533,6 +541,14 @@ const int32_t Attenuator::trans_to_steps(const float trans)
 
   return res;
 
+}
+
+const double Attenuator::steps_to_trans(const int steps)
+{
+  // undo the offsets
+  int step_raw = steps-m_offset-m_cal_offset;
+  double trans = std::pow(std::cos(static_cast<double>(step_raw)*M_PI/(m_cal_scale*180.)),2);
+  return trans;
 }
 
 

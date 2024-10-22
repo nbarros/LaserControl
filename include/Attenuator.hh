@@ -234,8 +234,8 @@ public:
    * @param trans transmissibility, ranging from [0.0 to 1.0]
    * @param wait (default false) wait for the attenuator to be in that setting before returning
    */
-   void set_transmission(const float trans, bool wait = false);
-
+   void set_transmission(const double trans, bool &success, bool wait = false);
+   void get_transmission(double &transmission);
    /**
     * Save settings to the device registers. This only affects the counter manipulations
     */
@@ -297,6 +297,8 @@ public:
  void get_reset_on_zero(bool &r) {r = m_reset_on_zero;}
  void get_report_on_zero(bool &r) { r = m_report_on_zero;}
 
+ void set_cal_parameters(const int offset, const double scale) {m_cal_offset = offset; m_cal_scale = scale;}
+ void get_cal_parameters(int &offset, double &scale) {offset = m_cal_offset; scale = m_cal_scale;}
 private:
 
   /**
@@ -315,7 +317,8 @@ private:
    * @param transmissibility
    * @return corresponding position in steps
    */
-  const int32_t trans_to_steps(const float trans);
+  const int trans_to_steps(const double trans);
+  const double steps_to_trans(const int steps);
   const float convert_current(uint16_t val);
 
   /**
@@ -325,6 +328,7 @@ private:
    */
   void write_cmd(const std::string cmd);
   void read_cmd(std::string &answer);
+
 
 
   /// local variables
@@ -346,7 +350,8 @@ private:
   bool m_reset_on_zero;
   bool m_report_on_zero;
   std::string m_serial_number;
-
+  double m_cal_scale;
+  int    m_cal_offset;
 };
 }
 

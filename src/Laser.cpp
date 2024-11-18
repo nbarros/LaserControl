@@ -79,31 +79,30 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
     std::cout << "Laser::Laser : Connection established" << std::endl;
 #endif
 
-
-    // FIXME: We should not initialize anything. Or should we?
-    /// we have a connection. Lets initialize some settings
-    //set_prescale(m_prescale);
-    //set_pump_voltage(m_pump_hv);
-    //set_qswitch(m_qswitch);
-    //set_repetition_rate(m_rate);
-
-
-    // actually, we should also query the device for its current settings
-    // unfortunately, there is no such command
-    // so the best is to set everything, and keeping good track of what are
-    // the settings
   }
 }
 
 Laser::~Laser ()
 {
+
 }
 
 void Laser::shutter(enum Shutter s)
 {
   std::ostringstream cmd;
   cmd << "SH " << static_cast<uint32_t>(s);
-  write_cmd(cmd.str());
+  bool resp = write_cmd(cmd.str());
+  if (!resp) 
+  {
+    // retry
+    reset_connection();
+    resp = write_cmd(cmd.str());
+    if (!resp)
+    {
+      // command failed. We should throw an exception
+      throw serial::IOException("Failed to send SH command");
+    }
+  }
 }
 
 
@@ -111,7 +110,16 @@ void Laser::fire(enum Fire s)
 {
   std::ostringstream cmd;
   cmd << "ST " << static_cast<uint32_t>(s);
-  write_cmd(cmd.str());
+  bool st = write_cmd(cmd.str());
+  if (st != true)
+  {
+    reset_connection();
+    st = write_cmd(cmd.str());
+    if (!st)
+    {
+      throwserial::IOException("Failed to send ST command");
+    }
+  }
   if (s == Start)
   {
     m_is_firing = true;
@@ -144,8 +152,17 @@ void Laser::set_prescale(uint32_t pre)
 #ifdef DEBUG
     std::cout << "Laser::set_prescale : Setting prescale to [" << cmd.str() << "]." << std::endl;
 #endif
-  write_cmd(cmd.str());
-
+  bool success = write_cmd(cmd.str());
+  if (!success)
+  {
+    // reset connection adn retry
+    reset_connection();
+    success = write_cmd(cmd.str());
+    if (!success)
+    {
+      throw serial::IOException("Failed to send PD command");
+    }
+  }
   m_prescale = pre;
 }
 
@@ -178,7 +195,18 @@ void Laser::set_pump_voltage(float hv)
     std::cout << "Laser::set_pump_voltage : Setting pump voltage to [" << cmd.str() << "]." << std::endl;
 #endif
 
-  write_cmd(cmd.str());
+  bool success = write_cmd(cmd.str());
+  if (!success)
+  {
+    // reset connection adn retry
+    reset_connection();
+    success = write_cmd(cmd.str());
+    if (!success)
+    {
+      throw serial::IOException("Failed to send VA command");
+    }
+  }
+
   m_pump_hv = hv;
 }
 
@@ -193,7 +221,17 @@ void Laser::single_shot()
 #ifdef DEBUG
     std::cout << "Laser::set_ss_mode : Enabling single shot mode." << std::endl;
 #endif
-  write_cmd(cmd);
+  bool success = write_cmd(cmd.str());
+  if (!success)
+  {
+    // reset connection adn retry
+    reset_connection();
+    success = write_cmd(cmd.str());
+    if (!success)
+    {
+      throw serial::IOException("Failed to send SS command");
+    }
+  }
 }
 
 void Laser::get_shot_count(uint32_t &count)
@@ -212,10 +250,14 @@ void Laser::get_shot_count(uint32_t &count)
 #endif
   if (lines.size() == 0)
   {
-    std::cout << "Received no answer" << std::endl;
-    resp = "N/A";
+    reset_connection();
+    read_lines(lines);
+    if (lines.size() == 0)
+    {
+      throw serial::IOException("Failed to read shot count");
+    } 
   }
-  if (lines.size() == 1)
+  else if (lines.size() == 1)
   {
     resp = lines.at(0);
     if (resp.size() > 0)
@@ -302,10 +344,33 @@ Table 6 below.
    */
   std::string cmd = "SE";
   std::string resp;
-  write_cmd(cmd);
-
+  bool success = write_cmd(cmd);
+  if (!success)
+  {
+    // reset connection, retry
+    reset_connection();
+    success = write_cmd(cmd);
+    if (!success)
+    {
+      throw serial::IOException("Failed to send SE command");
+    }  
+  }
   std::vector<std::string> lines;
   read_lines(lines);
+  if (lines.size() == 0)
+  {
+    // failed to read. We already set the connection once. Just throw or try again?
+    reset_connection();
+    read_lines(lines);
+    if (lines.size() == 0)
+    {
+      throw serial::IOException(std::string("Failed to read security code").c_str());
+    }
+  }
+  else if (lines.size() != 2)
+  {
+    throw serial::IOException("Failed to read security code. Got unexpected number of tokens : " + std::to_string(lines.size()));
+  }
   // expect 2 answers
 #ifdef DEBUG
   std::cout << "Laser::security : Received [" << lines.size() << "] answer tokens" << std::endl;
@@ -338,7 +403,18 @@ void Laser::set_repetition_rate(float rate)
 #ifdef DEBUG
   std::cout << "Laser::set_repetition_rate : submitting command [" << cmd.str() << "]." << std::endl;
 #endif
-  write_cmd(cmd.str());
+  bool success = write_cmd(cmd.str());
+  if (!success)
+  {
+    // reset connection, retry
+    reset_connection();
+    success = write_cmd(cmd);
+    if (!success)
+    {
+      throw serial::IOException("Failed to send RR command");
+    }
+  }
+
 #ifdef DEBUG
   std::cout << "Laser::set_repetition_rate : Command written" << std::endl;
 #endif
@@ -361,14 +437,24 @@ void Laser::set_qswitch(uint32_t qs)
 #ifdef DEBUG
     std::cout << "Laser::set_qswitch : Submitting command (" << cmd.str() << "). " << std::endl;
 #endif
-    write_cmd(cmd.str());
+    bool success = write_cmd(cmd.str());
+    if (!success)
+    {
+      // reset connection, retry
+      reset_connection();
+      success = write_cmd(cmd);
+      if (!success)
+      {
+        throw serial::IOException("Failed to send QS command");
+      }
+    }
     m_qswitch = qs;
 }
 
 
-void Laser::write_cmd(const std::string cmd)
+bool Laser::write_cmd(const std::string cmd)
 {
-  Device::write_cmd(cmd);
+  bool ret = Device::write_cmd(cmd);
 //  printf("Exit from write_cmd. Going to sleep for a bit\n");
 
   // attenuator instruction on page 31 say that we need to
@@ -378,10 +464,10 @@ void Laser::write_cmd(const std::string cmd)
     printf("Passed here\n");
     std::cout << "Laser::write_cmd : Command submitted (" << util::escape(cmd.c_str()) << ")." << std::endl;
 #endif
-
+  return ret;
 }
 
-void Laser::read_cmd(std::string &answer)
+bool Laser::read_cmd(std::string &answer)
 {
   // wait for the port to be ready
   size_t nbytes = 0;
@@ -400,12 +486,29 @@ void Laser::read_cmd(std::string &answer)
 #ifdef DEBUG
   std::cout << "Laser::read_cmd : Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
-
-  answer.erase(answer.size()-m_read_sfx.length());
-
+  if (nbytes == 0)
+  {
+    // retry
+    reset_connection();
+    nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
+    if (nbytes == 0)
+    {
+      return false;
+    }
+  }
+  else if (nbytes <= m_read_sfx.length())
+  {
+    // got something unexpected
+    return false;
+  }
+  else
+  {
+    answer.erase(answer.size()-m_read_sfx.length());
+  }
 #ifdef DEBUG
   std::cout << "Laser::read_cmd : Trimmed answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
+  return true;
 
 }
 

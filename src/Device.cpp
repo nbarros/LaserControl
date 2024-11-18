@@ -44,50 +44,33 @@ namespace device
     }
   }
 
-  void Device::write_cmd(const std::string cmd)
+  bool Device::write_cmd(const std::string cmd)
   {
+    if (!m_serial.isOpen())
+    {
+      m_serial.open();
+    }
     // drop any input that may be pending
     m_serial.flushInput();
     m_serial.flushOutput();
     // first flush any pending buffers
-    //m_serial.flush();
+    // m_serial.flush();
 
-    std::string msg = m_com_pre + cmd + m_com_sfx;
+      std::string msg = m_com_pre + cmd + m_com_sfx;
 #ifdef DEBUG
     std::cout << "Device::write_cmd : Sending command [" << util::escape(msg.c_str()) << "]" << std::endl;
 #endif
     size_t written_bytes = m_serial.write(msg);
+    if (written_bytes != msg.size())
+    {
+      return false;
+    }
   #ifdef DEBUG
     std::cout << "Device::write_cmd : Wrote "<< written_bytes << " bytes" << std::endl;
   #endif
-  }
-
-  void Device::read_cmd(std::string &answer)
-  {
-    //m_serial.waitReadable()
-    size_t nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
-    // one should remove the chars
-#ifdef DEBUG
-    std::cout << "Device::read_cmd : Received " << nbytes << " bytes answer [" << util::escape(answer.c_str()) << "]" << std::endl;
-#endif
-
-    // careful with the trim
-    // if for some reason the answer is not valid, we can hit an exception here
-    if (answer.size() < m_read_sfx.size())
-    {
-#ifdef DEBUG
-      std::cout << "Answer has less characters than expected [ (got) " << answer.size() << " vs " << m_read_sfx.size() << "]" << std::endl;
-#endif
-      // in this case just trim special chars
-      std::string ta =  util::rtrim(answer);
-      answer = ta;
+    return true;
     }
-    else
-    {
-      // trim the suffix chars
-      answer.erase(answer.size()-m_read_sfx.size());
-    }
-   }
+
 
 
   void Device::set_timeout_ms(uint32_t t)
@@ -101,7 +84,45 @@ namespace device
 
   }
 
-  void Device::read_lines(std::vector<std::string> &lines)
+  bool Device::read_cmd(std::string &answer)
+  {
+
+    // m_serial.waitReadable()
+    size_t nbytes = m_serial.readline(answer, 0xFFFF, m_read_sfx);
+    // one should remove the chars
+#ifdef DEBUG
+    std::cout << "Device::read_cmd : Received " << nbytes << " bytes answer [" << util::escape(answer.c_str()) << "]" << std::endl;
+#endif
+
+  // if we got no answer
+  if (nbytes == 0) 
+  {
+    return false;
+  }
+  else if (nbytes < m_read_sfx.size())
+  {
+    return false;
+  }
+  // careful with the trim
+  // if for some reason the answer is not valid, we can hit an exception here
+  if (answer.size() < m_read_sfx.size())
+  {
+#ifdef DEBUG
+      std::cout << "Answer has less characters than expected [ (got) " << answer.size() << " vs " << m_read_sfx.size() << "]" << std::endl;
+#endif
+      // in this case just trim special chars
+      std::string ta = util::rtrim(answer);
+      answer = ta;
+    }
+    else
+    {
+      // trim the suffix chars
+      answer.erase(answer.size() - m_read_sfx.size());
+    }
+    return true;
+  }
+
+  bool Device::read_lines(std::vector<std::string> &lines)
   {
     // wait for the port to be ready
     //size_t nbytes = 0;
@@ -113,7 +134,13 @@ namespace device
       std::cout << "[" << util::escape(entry.c_str()) << "]" << std::endl;
     }
   #endif
+  return true;
+  }
 
+  void Device::reset_connection()
+  {
+    m_serial.close();
+    m_serial.open();
   }
 
 } /* namespace device */

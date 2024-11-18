@@ -135,8 +135,8 @@ public:
   //void set_wait_read(bool v) {m_wait_read = v;}
 private:
 
-  void write_cmd(const std::string cmd);
-  void read_cmd(std::string &answer);
+  bool write_cmd(const std::string cmd);
+  bool read_cmd(std::string &answer);
 
   // disallow any kind of copy constructor or assignment operators
   Laser (Laser &&other) = delete;

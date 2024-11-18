@@ -39,15 +39,17 @@ namespace device
     const std::string get_port() {return m_comport;}
     const uint32_t get_baud() {return m_baud;}
 
-    void read_lines(std::vector<std::string> &lines);
+    bool read_lines(std::vector<std::string> &lines);
     void set_timeout_ms(uint32_t t);
 
   protected:
     /// local member declaration
     ///
-    void write_cmd(const std::string cmd);
+    bool write_cmd(const std::string cmd);
 
-    void read_cmd(std::string &answer);
+    bool read_cmd(std::string &answer);
+
+    void reset_connection();
 
     std::string m_comport;
     uint32_t m_baud;

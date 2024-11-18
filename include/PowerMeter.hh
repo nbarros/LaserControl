@@ -309,7 +309,7 @@ public:
 
 private:
 
-  void send_cmd(const std::string cmd, std::string &resp);
+  bool send_cmd(const std::string cmd, std::string &resp, bool repeat = true);
   void init_pulse_lengths();
 
   MeasurementMode m_mmode;

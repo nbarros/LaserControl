@@ -84,7 +84,11 @@ void Attenuator::move(const int32_t steps, int32_t &position, bool wait)
   // there is no need to range check, as int32_t *is* the allowed range
   std::ostringstream msg;
   msg  << "m "  << steps;
-  write_cmd(msg.str());
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send move command");
+  }
   // don't do anything here. This is just to set the motor in motion
   if (wait)
   {
@@ -106,7 +110,14 @@ void Attenuator::go(const int32_t target,int32_t &position, bool wait )
   }
   std::ostringstream msg;
   msg << "g " << target;
-  write_cmd(msg.str());
+  // this command resets the connection and throws if it fails
+  //FXME: Continue here
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send go command");
+  }
+
   if (wait)
   {
     enum MotorState s;
@@ -135,8 +146,11 @@ void Attenuator::set_current_position(const int32_t pos)
   std::cout << "Attenuator::set_current_position : Current position ["
       << m_position << "] new position [" << pos << "]" << std::endl;
 #endif
-  write_cmd(msg.str());
-
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send set position command");
+  }
   // but now we should set the offset to the difference
   m_offset += (pos - m_position);
 }
@@ -162,7 +176,11 @@ void Attenuator::set_zero()
       << m_position << "] " << std::endl;
 #endif
   m_offset += m_position;
-  write_cmd(cmd);
+  bool st = write_cmd(cmd);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send set zero command");
+  }
 
 }
 
@@ -177,7 +195,11 @@ void Attenuator::stop(bool force)
 #endif
     cmd = "b";
   }
-  write_cmd(cmd);
+  bool st = write_cmd(cmd);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send stop command");
+  }
   // this command should always be followed by a get_position
 }
 
@@ -198,7 +220,11 @@ void Attenuator::go_home()
   }
 
   std::string msg = "zp";
-  write_cmd(msg);
+  bool st = write_cmd(msg);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send go home command");
+  }
   m_offset = 0;
 }
 
@@ -212,7 +238,11 @@ void Attenuator::set_resolution(const enum Resolution res)
   m_resolution = res;
   std::ostringstream msg;
   msg << "r "  << r;
-  write_cmd(msg.str());
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to set resolution");
+  }
 }
 
 void Attenuator::set_idle_current(const uint16_t val)
@@ -224,7 +254,11 @@ void Attenuator::set_idle_current(const uint16_t val)
   std::cout << "Attenuator::set_idle_current : Setting idle current to ["
       << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
 #endif
-  write_cmd(msg.str());
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to set idle current");
+  }
   m_current_idle = val;
 }
 
@@ -236,7 +270,11 @@ void Attenuator::set_moving_current(const uint16_t val)
   std::cout << "Attenuator::set_moving_current : Setting moving current to ["
       << msg.str() << "] (" << convert_current(val)<< "]" << std::endl;
 #endif
-  write_cmd(msg.str());
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to set moving current");
+  }
   m_current_move = val;
 }
 
@@ -248,7 +286,11 @@ void Attenuator::set_acceleration(const uint16_t val)
   std::cout << "Attenuator::set_acceleration : Setting acceleration to ["
       << msg.str() << "]" << std::endl;
 #endif
-  write_cmd(msg.str());
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to set acceleration");
+  }
   m_acceleration = val;
 }
 
@@ -260,7 +302,11 @@ void Attenuator::set_deceleration(const uint16_t val)
   std::cout << "Attenuator::set_deceleration : Setting deceleration to ["
       << msg.str() << "]" << std::endl;
 #endif
-  write_cmd(msg.str());
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to set deceleration");
+  }
   m_deceleration = val;
 }
 
@@ -273,16 +319,28 @@ void Attenuator::set_max_speed(const uint32_t speed)
   std::cout << "Attenuator::set_max_speed : Setting max speed to ["
       << msg.str() << "]" << std::endl;
 #endif
-  write_cmd(msg.str());
+  bool st = write_cmd(msg.str());
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to set max speed");
+  }
   m_max_speed = speed;
 }
 
 const std::string Attenuator::get_status_raw()
 {
   std::string msg = "p";
-  write_cmd(msg);
+  bool st = write_cmd(msg);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send get status command");
+  }
   std::string resp;
-  read_cmd(resp);
+  st = read_cmd(resp);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to read status");
+  }
 #ifdef DEBUG
   std::cout << "Attenuator::get_status_raw : Resp ["<< resp << "]" << std::endl;
 #endif
@@ -294,10 +352,17 @@ const std::string Attenuator::get_status_raw()
 void Attenuator::refresh_status()
 {
   std::string msg= "pc";
-  write_cmd(msg);
-
+  bool st = write_cmd(msg);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send get status command");
+  }
   std::string resp;
-  read_cmd(resp);
+  st = read_cmd(resp);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to read status");
+  }
 #ifdef DEBUG
   std::cout << "Attenuator::refresh_status : Resp ["<< resp << "]" << std::endl;
 #endif
@@ -364,9 +429,17 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
 {
   // query status and position of the attenuator motor
   std::string msg("o");
-  write_cmd(msg);
+  bool st = write_cmd(msg);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send get position command");
+  }
   std::string resp;
-  read_cmd(resp);
+  st = read_cmd(resp);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to read position");
+  }
   // the answer already comes stripped from the carriage return '\r'
 #ifdef DEBUG
   std::cout << "Attenuator::get_position : Resp ["<< util::escape(resp.c_str()) << "]" << std::endl;
@@ -448,13 +521,21 @@ void Attenuator::get_transmission(double &transmission)
 void Attenuator::save_settings()
 {
   std::string msg = "ss";
-  write_cmd(msg);
+  bool st = write_cmd(msg);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send save settings command");
+  }
 }
 
 void Attenuator::reset_controller()
 {
   std::string msg = "j";
-  write_cmd(msg);
+  bool st = write_cmd(msg);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send reset command");
+  }
 }
 
 void Attenuator::set_serial_number(const std::string sn)
@@ -480,14 +561,26 @@ void Attenuator::set_serial_number(const std::string sn)
 
     std::ostringstream cmd;
     cmd << "sn " << name;
-    write_cmd(cmd.str());
+    bool st = write_cmd(cmd.str());
+    if (!st)
+    {
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send command to set serial number");
+    }
 }
 
 void Attenuator::get_serial_number(std::string &sn)
 {
   std::string cmd = "n";
-  write_cmd(cmd);
-  read_cmd(sn);
+  bool st = write_cmd(cmd);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to send command to get serial number");
+  }
+  st = read_cmd(sn);
+  if (!st)
+  {
+    throw serial::IOException(__FILE__,__LINE__,"Failed to read serial number");
+  }
   //std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
   //#ifdef DEBUG
   //  std::cout << "Attenuator::get_serial_number : Resp ["<< resp << "]" << std::endl;
@@ -563,23 +656,58 @@ const float Attenuator::convert_current(uint16_t val)
   return 0.00835 * val;
 }
 
-void Attenuator::write_cmd(const std::string cmd)
+bool Attenuator::write_cmd(const std::string cmd, bool repeat)
 {
-  Device::write_cmd(cmd);
+  bool st = Device::write_cmd(cmd);
+  if (!st)
+  {
+    if (repeat)
+    {
+      reset_connection();
+      return write_cmd(cmd,false);
+    }
+    else
+    {
+      // command failed and we didn't request a repeat
+      return false;
+    }
+  }
   // attenuator instruction on page 31 say that we need to
   // add an interval of 50ms between commands
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  return true;
 }
 
-void Attenuator::read_cmd(std::string &answer)
+bool Attenuator::read_cmd(std::string &answer, bool repeat)
 {
-  size_t nbytes = m_serial.readline(answer,0xFFFF,"\n\r");
-
+  // wait for the port to be ready
+  size_t nbytes = 0;
+  // only do this wait if the timeout is not 0
+   nbytes = m_serial.readline(answer,0xFFFF,"\n\r");
+  if (nbytes == 0)
+  {
+    if (repeat)
+    {
+      reset_connection();
+      return read_cmd(answer,false);
+    }
+    else
+    {
+      // command failed and we didn't request a repeat
+      return false;
+    }
+  }
+  // check that the answer has at least the number of chars from the suffix
+  if (nbytes < 2)
+  {
+      // command failed and we didn't request a repeat
+      return false;
+  }
 #ifdef DEBUG
   std::cout << "Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
   answer.erase(answer.size()-2);
-
+  return true;
 }
 
 

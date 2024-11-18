@@ -100,7 +100,7 @@ void Laser::shutter(enum Shutter s)
     if (!resp)
     {
       // command failed. We should throw an exception
-      throw serial::IOException("Failed to send SH command");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send SH command");
     }
   }
 }
@@ -117,7 +117,7 @@ void Laser::fire(enum Fire s)
     st = write_cmd(cmd.str());
     if (!st)
     {
-      throwserial::IOException("Failed to send ST command");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send ST command");
     }
   }
   if (s == Start)
@@ -160,7 +160,7 @@ void Laser::set_prescale(uint32_t pre)
     success = write_cmd(cmd.str());
     if (!success)
     {
-      throw serial::IOException("Failed to send PD command");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send PD command");
     }
   }
   m_prescale = pre;
@@ -203,7 +203,7 @@ void Laser::set_pump_voltage(float hv)
     success = write_cmd(cmd.str());
     if (!success)
     {
-      throw serial::IOException("Failed to send VA command");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send VA command");
     }
   }
 
@@ -221,15 +221,15 @@ void Laser::single_shot()
 #ifdef DEBUG
     std::cout << "Laser::set_ss_mode : Enabling single shot mode." << std::endl;
 #endif
-  bool success = write_cmd(cmd.str());
+  bool success = write_cmd(cmd.c_str());
   if (!success)
   {
     // reset connection adn retry
     reset_connection();
-    success = write_cmd(cmd.str());
+    success = write_cmd(cmd.c_str());
     if (!success)
     {
-      throw serial::IOException("Failed to send SS command");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send SS command");
     }
   }
 }
@@ -254,7 +254,7 @@ void Laser::get_shot_count(uint32_t &count)
     read_lines(lines);
     if (lines.size() == 0)
     {
-      throw serial::IOException("Failed to read shot count");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to read shot count");
     } 
   }
   else if (lines.size() == 1)
@@ -352,7 +352,7 @@ Table 6 below.
     success = write_cmd(cmd);
     if (!success)
     {
-      throw serial::IOException("Failed to send SE command");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send SE command");
     }  
   }
   std::vector<std::string> lines;
@@ -364,12 +364,12 @@ Table 6 below.
     read_lines(lines);
     if (lines.size() == 0)
     {
-      throw serial::IOException(std::string("Failed to read security code").c_str());
+      throw serial::IOException(__FILE__,__LINE__,std::string("Failed to read security code").c_str());
     }
   }
   else if (lines.size() != 2)
   {
-    throw serial::IOException("Failed to read security code. Got unexpected number of tokens : " + std::to_string(lines.size()));
+    throw serial::IOException(__FILE__,__LINE__,std::string("Failed to read security code. Got unexpected number of tokens : " + std::to_string(lines.size())).c_str());
   }
   // expect 2 answers
 #ifdef DEBUG
@@ -408,10 +408,10 @@ void Laser::set_repetition_rate(float rate)
   {
     // reset connection, retry
     reset_connection();
-    success = write_cmd(cmd);
+    success = write_cmd(cmd.str());
     if (!success)
     {
-      throw serial::IOException("Failed to send RR command");
+      throw serial::IOException(__FILE__,__LINE__,"Failed to send RR command");
     }
   }
 
@@ -442,10 +442,10 @@ void Laser::set_qswitch(uint32_t qs)
     {
       // reset connection, retry
       reset_connection();
-      success = write_cmd(cmd);
+      success = write_cmd(cmd.str());
       if (!success)
       {
-        throw serial::IOException("Failed to send QS command");
+        throw serial::IOException(__FILE__,__LINE__,"Failed to send QS command");
       }
     }
     m_qswitch = qs;

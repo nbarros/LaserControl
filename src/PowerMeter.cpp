@@ -60,64 +60,6 @@ namespace device {
 #endif
       /// we have a connection. Lets initialize some settings
 
-      /**
-       * Should we set up defaults or just establish a connection and instead refresh the local variables
-       * from the existing settings?
-       */
-
-      // -- just query the local status
-
-      // -- do not set anything, just query to fill up the maps
-
-
-      // set the range (and fill in the map)
-      //set_range(m_range);
-      // query a couple of settings that need to be listed
-      //get_all_ranges();
-
-
-      // This is a function called "Average Query" in the guide to programmers
-      // The aim is to turn off averaging on bootup... but that doesn't seem to work?
-      //NFB: This is not what the programmers guide says.
-
-      //average_query(aNone,m_ave_query_state);
-      //    average_query(aQuery,m_ave_query_state);
-      //
-      //    // query wavelengths
-      //#ifdef DEBUG
-      //    std::string wls;
-      //    get_all_wavelengths(wls);
-      //    std::cout << "PowerMeter::PowerMeter : WL : [" << wls << "]" << std::endl;
-      //#endif
-      //    // query all wavelengths
-      //    // Set the wavelength to 266nm
-      //    // this is the only command I am not sure how to query directly
-      //    //set_wavelength(m_wavelength);
-      //
-      //    // query ranges
-      //    get_all_ranges(m_range);
-      //
-      //    // pulse widths
-      //    pulse_length(0,m_pulse_length);
-      //
-      //    uint16_t min, max;
-      //    query_user_threshold(m_e_threshold,min,max);
-
-      /*
-      // set the measurement to energy
-      bool s;
-      force_energy(s);
-      if (!s)
-      {
-        std::runtime_error("Failed to set device to energy mode. This should not happen");
-      }
-      // We're *trying* to set the Energy Threshold to the minimum value.
-      // This is a function called Energy Treshold in the guide to programmers.
-      // This doesn't work! Fix it!
-      //set_e_threshold(m_e_threshold);
-
-      user_threshold(m_e_threshold,m_e_threshold);
-       */
     }
 
     // init measurement units map
@@ -131,9 +73,6 @@ namespace device {
     m_measurement_units.insert({'W',"Watts"});
     m_measurement_units.insert({'X',"No measurement"});
 
-
-    //get_all_ranges(m_range);
-
       }
 
   PowerMeter::~PowerMeter ()
@@ -146,7 +85,11 @@ namespace device {
     std::ostringstream cmd;
     cmd << "WN " << range;
     std::string rr;
-    send_cmd(cmd.str(),rr);
+    bool st = send_cmd(cmd.str(), rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to set range");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::set_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -212,7 +155,11 @@ namespace device {
   {
     std::string cmd = "AF";
     std::string resp;
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query average flag");
+    }
 
     //  write_cmd(cmd);
     //  std::string answer = m_serial.readline(0xFFFF, "\r\n");
@@ -243,7 +190,12 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::set_average_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-    send_cmd(cmd.str(),resp);
+    bool st = send_cmd(cmd.str(), resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query average");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::get_average_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -285,7 +237,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::get_all_ranges : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query all ranges");
+    }
     //  write_cmd(cmd.str());
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
@@ -371,7 +327,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::get_all_wavelengths : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,answer);
+    bool st = send_cmd(cmd, answer);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query all wavelengths");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::get_all_wavelengths : got answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
@@ -389,7 +349,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::bc20_sensor_mode : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-    send_cmd(cmd.str(),resp);
+    bool st = send_cmd(cmd.str(), resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query b20 sensor mode");
+    }
     //  write_cmd(cmd.str());
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
@@ -410,7 +374,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::diffuser_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-    send_cmd(cmd.str(),resp);
+    bool st = send_cmd(cmd.str(), resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query diffuser");
+    }
     //  write_cmd(cmd.str());
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
@@ -444,7 +412,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::exposure_energy : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query exposure energy");
+    }
     //  write_cmd(cmd);
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
@@ -481,7 +453,12 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_flag : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query energy flag");
+    }
+
     //  write_cmd(cmd);
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
@@ -498,7 +475,12 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_ready : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query energy ready");
+    }
+
     //  write_cmd(cmd);
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
@@ -517,7 +499,12 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_threshold : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
-    send_cmd(cmd.str(),resp);
+    bool st = send_cmd(cmd.str(),resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query energy threshold");
+    }
+
     //  write_cmd(cmd);
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
@@ -536,8 +523,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::force_energy : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,resp);
-    //  write_cmd(cmd);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to force energy");
+    }
     //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
     std::cout << "PowerMeter::force_energy : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
@@ -567,7 +557,12 @@ namespace device {
     std::cout << "PowerMeter::filter_query : Sending query [" << cmd.str() << "]" << std::endl;
 #endif
     std::string resp;
-    send_cmd(cmd.str(),resp);
+    bool st = send_cmd(cmd.str(), resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query filter info");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::filter_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -599,7 +594,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::force_exposure : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to force exposure");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::force_exposure : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -613,7 +612,11 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::head_info_raw : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,answer);
+    bool st = send_cmd(cmd, answer);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query head info");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::head_info_raw : got answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
@@ -657,7 +660,12 @@ namespace device {
   void PowerMeter::head_type(std::string &type)
   {
     std::string resp;
-    send_cmd("HT",resp);
+    std::string cmd = "HT";
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query head type");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::head_type : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -666,18 +674,28 @@ namespace device {
 
   void PowerMeter::inst_config(bool &success)
   {
-    std::string resp;
-    send_cmd("IC",resp);
+    std::string rr;
+    std::string cmd = "IC";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query instrument config");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::inst_config : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    success = (resp.at(0) == '?')?false:true;
+    success = (rr.at(0) == '?')?false:true;
   }
 
   void PowerMeter::inst_info(std::string &id, std::string &sn, std::string &name)
   {
     std::string rr;
-    send_cmd("II",rr);
+    std::string cmd = "II";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query instrument info");
+    }
     rr = util::trim(rr);
 #ifdef DEBUG
     std::cout << "PowerMeter::inst_info : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
@@ -711,7 +729,11 @@ namespace device {
     std::ostringstream msg;
     std::string resp;
     msg << "MA " << q;
-    send_cmd(msg.str(),resp);
+    bool st = send_cmd(msg.str(), resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to send mains frequency");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::mains_frequency : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -722,7 +744,12 @@ namespace device {
   void PowerMeter::max_freq(uint32_t &value)
   {
     std::string rr;
-    send_cmd("MF",rr);
+    std::string cmd = "MF";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to send max frequency");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::max_freq : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -745,7 +772,11 @@ namespace device {
     std::string resp;
 
     msg << "MM " << q;
-    send_cmd(msg.str(),resp);
+    bool st = send_cmd(msg.str(), resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to set measurement mode");
+    }
     resp = util::trim(resp);
 #ifdef DEBUG
     std::cout << "PowerMeter::measurement_mode : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
@@ -784,7 +815,12 @@ namespace device {
     std::string resp;
 
     msg << "PL " << value;
-    send_cmd(msg.str(),resp);
+    bool st = send_cmd(msg.str(), resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to set pulse length");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::pulse_length : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
@@ -842,7 +878,13 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::reset : Sendint a reset. This may lead to complete disconnect of the system" << std::endl;
 #endif
-    send_cmd("RE",rr);
+    std::string cmd = "RE";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to send reset");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::reset : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -851,7 +893,13 @@ namespace device {
   void PowerMeter::get_range(int32_t &value)
   {
     std::string rr;
-    send_cmd("RN",rr);
+    std::string cmd = "RN";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query range");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::get_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -870,7 +918,13 @@ namespace device {
   void PowerMeter::send_energy(double &value)
   {
     std::string rr;
-    send_cmd("SE",rr);
+    std::string cmd = "SE";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query energy");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::send_energy : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -892,7 +946,13 @@ namespace device {
   void PowerMeter::send_frequency(double &value)
   {
     std::string rr;
-    send_cmd("SF",rr);
+    std::string cmd = "SF";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query frequency");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::send_frequency : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -903,7 +963,13 @@ namespace device {
   void PowerMeter::send_average(double &value)
   {
     std::string rr;
-    send_cmd("SG",rr);
+    std::string cmd = "SG";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query average");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::send_average : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -926,7 +992,13 @@ namespace device {
   void PowerMeter::send_units(char &unit)
   {
     std::string rr;
-    send_cmd("SI",rr);
+    std::string cmd = "SI";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query units");
+    }
+
 #ifdef DEBUG
     std::cout << "PowerMeter::send_units : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -943,7 +1015,12 @@ namespace device {
   void PowerMeter::send_power(double &value)
   {
     std::string rr;
-    send_cmd("SP",rr);
+    std::string cmd = "SP";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query power ");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::send_power : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -954,7 +1031,13 @@ namespace device {
   void PowerMeter::send_max(double &value)
   {
     std::string rr;
-    send_cmd("SX",rr);
+    std::string cmd = "SX";
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query max");
+    }
+
     // drop the first byte
     rr = rr.substr(1);
 #ifdef DEBUG
@@ -977,7 +1060,11 @@ namespace device {
     std::ostringstream cmd;
     cmd << "TW " << value;
     std::string rr;
-    send_cmd(cmd.str(),rr);
+    bool st = send_cmd(cmd.str(), rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query trigger window");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::trigger_window : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -991,7 +1078,11 @@ namespace device {
     std::ostringstream cmd;
     cmd << "UT " << value;
     std::string rr;
-    send_cmd(cmd.str(),rr);
+    bool st = send_cmd(cmd.str(), rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query user threshold");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::user_threshold : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -1061,7 +1152,11 @@ namespace device {
   {
     std::string cmd = "UT";
     std::string rr;
-    send_cmd(cmd,rr);
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query user threshold");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::query_user_threshold : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -1090,7 +1185,11 @@ namespace device {
   {
     std::string cmd = "VE";
     std::string rr;
-    send_cmd(cmd,rr);
+    bool st = send_cmd(cmd, rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to query version");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::version : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -1103,7 +1202,11 @@ namespace device {
     std::ostringstream cmd;
     cmd << "WI " << index;
     std::string rr;
-    send_cmd(cmd.str(),rr);
+    bool st = send_cmd(cmd.str(), rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to set wavelength index");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::wavelength_index : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -1117,7 +1220,11 @@ namespace device {
     std::ostringstream cmd;
     cmd << "WL " << wl;
     std::string rr;
-    send_cmd(cmd.str(),rr);
+    bool st = send_cmd(cmd.str(), rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to set wavelength");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::wavelength : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -1131,6 +1238,11 @@ namespace device {
     cmd << "WN " << range;
     std::string rr;
     send_cmd(cmd.str(),rr);
+    bool st = send_cmd(cmd.str(), rr);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to write range");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::write_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
@@ -1153,18 +1265,50 @@ namespace device {
   ///
   ///
 
-  void PowerMeter::send_cmd(const std::string cmd, std::string &resp)
+  bool PowerMeter::send_cmd(const std::string cmd, std::string &resp, bool repeat)
   {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_cmd : Sending query [" << cmd << "]" << std::endl;
 #endif
-    write_cmd(cmd);
-
+    bool st = write_cmd(cmd);
+    if (!st)
+    {
+      if (repeat)
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        reset_connection();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        st = write_cmd(cmd);
+        if (!st)
+        {
+          return false;
+        }
+      }
+      else
+      {
+        return false;
+      }
+    }
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    read_cmd(resp);
+    st = read_cmd(resp);
+    if (!st )
+    {
+      if (repeat)
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        reset_connection();
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        return read_cmd(resp);
+      }
+      else
+      {
+        return false;
+      }
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::send_cmd : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
+    return true;
   }
 
   void PowerMeter::init_pulse_lengths()
@@ -1173,7 +1317,11 @@ namespace device {
     std::string resp;
     // do first a query
     std::string cmd = "MM 0";
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd,resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__,__LINE__,"Failed to query pulse lengths");
+    }
     // now parse response
     std::vector<std::string> tokens;
     util::tokenize_string(resp, tokens, " ");

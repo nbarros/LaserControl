@@ -321,13 +321,14 @@ private:
   const double steps_to_trans(const int steps);
   const float convert_current(uint16_t val);
 
+
   /**
    * Overload of Device::write_cmd, as the attenuator requires that 50 ms
    * are injected between commands
    * @param cmd
    */
-  void write_cmd(const std::string cmd);
-  void read_cmd(std::string &answer);
+  bool write_cmd(const std::string cmd, bool repeat = true);
+  bool read_cmd(std::string &answer, bool repeat = true);
 
 
 

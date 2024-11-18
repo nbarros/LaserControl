@@ -129,6 +129,11 @@ int map_laser()
     spdlog::critical("Serial exception : {0}",e.what());
     ret = 1;
   }
+  catch(serial::IOException &e)
+  {
+    spdlog::critical("Caught serial IO exception : {0}",e.what());
+    ret = 1;
+  }
   catch(std::exception &e)
   {
     spdlog::critical("STL exception : {0}",e.what());
@@ -213,6 +218,11 @@ int query_attenuator_settings()
     spdlog::critical("Serial exception : {0}",e.what());
     ret = 1;
   }
+  catch (serial::IOException &e)
+  {
+    spdlog::critical("Caught serial IO exception : {0}", e.what());
+    ret = 1;
+  }
   catch(std::exception &e)
   {
     spdlog::critical("STL exception : {0}",e.what());
@@ -274,6 +284,11 @@ int map_attenuator()
   catch(serial::SerialException &e)
   {
     spdlog::critical("Serial exception : {0}",e.what());
+    ret = 1;
+  }
+  catch (serial::IOException &e)
+  {
+    spdlog::critical("Caught serial IO exception : {0}", e.what());
     ret = 1;
   }
   catch(std::exception &e)
@@ -398,6 +413,11 @@ int query_power_meter_settings()
     spdlog::critical("Serial exception : {0}",e.what());
     ret = 1;
   }
+  catch (serial::IOException &e)
+  {
+    spdlog::critical("Caught serial IO exception : {0}", e.what());
+    ret = 1;
+  }
   catch(std::exception &e)
   {
     spdlog::critical("STL exception : {0}",e.what());
@@ -460,6 +480,11 @@ int map_power_meter()
   catch(serial::SerialException &e)
   {
     spdlog::critical("Serial exception : {0}",e.what());
+    ret = 1;
+  }
+  catch (serial::IOException &e)
+  {
+    spdlog::critical("Caught serial IO exception : {0}", e.what());
     ret = 1;
   }
   catch(std::exception &e)
@@ -1244,6 +1269,11 @@ int run_command(int argc, char** argv)
   catch(serial::SerialException &e)
   {
     spdlog::critical("Serial exception : {0}",e.what());
+    return 1;
+  }
+  catch (serial::IOException &e)
+  {
+    spdlog::critical("Caught serial IO exception : {0}", e.what());
     return 1;
   }
   catch(std::exception &e)

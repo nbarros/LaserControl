@@ -656,8 +656,23 @@ void print_help()
   }
   if (!g_ignore_pm)
   {
-    spdlog::info("  power_meter");
-    spdlog::info("    ** This is not implemented yet **");
+    spdlog::info("  power_meter [subcmd [args]]");
+    spdlog::info("    Without arguments queries config");
+    spdlog::info("    Available subcomands:");
+    spdlog::info("      get <setting>");
+    spdlog::info("        Gets a setting from the configuration");
+    spdlog::info("        Possible options:");
+    spdlog::info("          wavelength, range, e_threshold, pulse_width, average_flag");
+    spdlog::info("          energy, average, frequency, unit, max, trigger_window");
+    spdlog::info("      set <setting> <value>");
+    spdlog::info("        Sets a setting from the configuration");
+    spdlog::info("        Possible options:");
+    spdlog::info("          wavelength, range, average, measurement_mode, pulse_width");
+    spdlog::info("          threshold, unit, trigger_window");
+    spdlog::info("      get_energy");
+    spdlog::info("        Gets the current energy measurement");
+    spdlog::info("      get_average");
+    spdlog::info("        Gets the current average measurement");    
   }
   spdlog::info("  help");
   spdlog::info("    Print this help");

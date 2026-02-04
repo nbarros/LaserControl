@@ -14,6 +14,8 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <fstream>
+#include <json.hpp>
 
 using std::cout;
 using std::endl;
@@ -328,14 +330,90 @@ int main(int argc, char**argv)
   // this test simply tries to figure out the port of each device
   // connect to it and query something
 
-  const std::string laser_sn = "A9J0G3SV";
-  //test_laser(laser_sn.c_str());
+  if (argc < 2)
+  {
+    cout << "Usage: " << argv[0] << " <config.json>" << endl;
+    cout << "Example: " << argv[0] << " config_p3.json" << endl;
+    return 1;
+  }
 
-  const std::string attenuator_sn = "6ATT1788D";
-  test_attenuator(attenuator_sn.c_str());
+  std::string config_file = argv[1];
+  
+  // Parse JSON configuration file
+  nlohmann::json config;
+  try
+  {
+    std::ifstream config_stream(config_file);
+    if (!config_stream.is_open())
+    {
+      cout << "ERROR: Failed to open configuration file: " << config_file << endl;
+      return 1;
+    }
+    config_stream >> config;
+    config_stream.close();
+  }
+  catch(std::exception &e)
+  {
+    cout << "ERROR: Failed to parse JSON configuration: " << e.what() << endl;
+    return 1;
+  }
 
-  const std::string pm_sn = "A9CQTZ05";
-  test_power_meter(pm_sn.c_str());
+  // Extract serial numbers from config
+  std::string laser_sn = "";
+  std::string attenuator_sn = "";
+  std::string pm_sn = "";
+
+  try
+  {
+    if (config.contains("laser"))
+    {
+      laser_sn = config["laser"].get<std::string>();
+      cout << "Found laser serial number: " << laser_sn << endl;
+    }
+    if (config.contains("attenuator"))
+    {
+      attenuator_sn = config["attenuator"].get<std::string>();
+      cout << "Found attenuator serial number: " << attenuator_sn << endl;
+    }
+    if (config.contains("power_meter"))
+    {
+      pm_sn = config["power_meter"].get<std::string>();
+      cout << "Found power meter serial number: " << pm_sn << endl;
+    }
+  }
+  catch(std::exception &e)
+  {
+    cout << "ERROR: Failed to extract serial numbers from config: " << e.what() << endl;
+    return 1;
+  }
+
+  // Test devices based on configuration
+  if (!laser_sn.empty())
+  {
+    test_laser(laser_sn.c_str());
+  }
+  else
+  {
+    cout << "WARNING: No laser serial number found in config, skipping laser test" << endl;
+  }
+
+  if (!attenuator_sn.empty())
+  {
+    test_attenuator(attenuator_sn.c_str());
+  }
+  else
+  {
+    cout << "WARNING: No attenuator serial number found in config, skipping attenuator test" << endl;
+  }
+
+  if (!pm_sn.empty())
+  {
+    test_power_meter(pm_sn.c_str());
+  }
+  else
+  {
+    cout << "WARNING: No power meter serial number found in config, skipping power meter test" << endl;
+  }
 
   return 0;
 }

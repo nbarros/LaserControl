@@ -307,9 +307,9 @@ int map_attenuator()
 
 int query_power_meter_settings()
 {
-  if (g_ignore_attenuator)
+  if (g_ignore_pm)
   {
-    spdlog::error("Attenuator is being ignored.No operations possible");
+    spdlog::error("Power meter is being ignored.No operations possible");
     return 1;
   }
   int ret = 0;

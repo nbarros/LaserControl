@@ -682,7 +682,7 @@ namespace device {
       throw serial::IOException(__FILE__, __LINE__, "Failed to query instrument config");
     }
 #ifdef DEBUG
-    std::cout << "PowerMeter::inst_config : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
+    std::cout << "PowerMeter::inst_config : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
     success = (rr.at(0) == '?')?false:true;
   }

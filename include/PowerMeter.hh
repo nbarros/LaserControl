@@ -330,6 +330,7 @@ private:
   std::map<char,std::string> m_measurement_units;
   std::pair<uint16_t, uint16_t> m_threshold_ranges;
 
+  uint16_t m_interval_between_cmds_ms;
 };
 
 }

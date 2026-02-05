@@ -23,7 +23,8 @@ namespace device {
       m_wavelength(266),
       m_e_threshold(1),
       m_ave_query_state(aNone),
-      m_pulse_length(0)
+      m_pulse_length(0),
+      m_interval_between_cmds_ms(20)
 
       {
     // override the prefix
@@ -1288,9 +1289,9 @@ namespace device {
     {
       if (repeat)
       {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
         reset_connection();
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
         st = write_cmd(cmd);
         if (!st)
         {
@@ -1302,15 +1303,15 @@ namespace device {
         return false;
       }
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
     st = read_cmd(resp);
     if (!st )
     {
       if (repeat)
       {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
         reset_connection();
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
         return read_cmd(resp);
       }
       else

@@ -956,8 +956,17 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_frequency : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // drop the first byte
-    value = std::stod(rr.substr(1));
+    // typical answer: [*10\r\n]
+    // typical failure: [?FREQ TOO LOW\r\n]
+    if (rr.at(0) == '?')
+    {
+      value = 0.0;
+    }
+    else
+    {
+      // drop the first byte
+      value = std::stod(rr.substr(1));
+    }
   }
 
   void PowerMeter::send_average(double &value)

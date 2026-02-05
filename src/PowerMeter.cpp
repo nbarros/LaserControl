@@ -1066,20 +1066,24 @@ namespace device {
 
   void PowerMeter::trigger_window(const uint16_t value, uint16_t &answer)
   {
-    std::ostringstream cmd;
-    cmd << "TW " << value;
-    std::string rr;
-    bool st = send_cmd(cmd.str(), rr);
-    if (!st)
-    {
-      throw serial::IOException(__FILE__, __LINE__, "Failed to query trigger window");
-    }
-#ifdef DEBUG
-    std::cout << "PowerMeter::trigger_window : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
-#endif
-    // first strip the return byte
-    rr = rr.substr(1);
-    answer = std::stoul(rr) & 0xFFFF;
+    // -- this command is not implemented in the Vega device
+    answer = 0;
+    return;
+
+//     std::ostringstream cmd;
+//     cmd << "TW " << value;
+//     std::string rr;
+//     bool st = send_cmd(cmd.str(), rr);
+//     if (!st)
+//     {
+//       throw serial::IOException(__FILE__, __LINE__, "Failed to query trigger window");
+//     }
+// #ifdef DEBUG
+//     std::cout << "PowerMeter::trigger_window : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
+// #endif
+//     // first strip the return byte
+//     rr = rr.substr(1);
+//     answer = std::stoul(rr) & 0xFFFF;
   }
 
   void PowerMeter::user_threshold(const uint16_t value, uint16_t &answer)

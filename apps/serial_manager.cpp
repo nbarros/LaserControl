@@ -663,12 +663,12 @@ void print_help()
     spdlog::info("        Gets a setting from the configuration");
     spdlog::info("        Possible options:");
     spdlog::info("          wavelength, range, e_threshold, pulse_width, average_flag");
-    spdlog::info("          energy, average, frequency, unit, max, trigger_window");
+    spdlog::info("          energy, average, frequency, unit, max");
     spdlog::info("      set <setting> <value>");
     spdlog::info("        Sets a setting from the configuration");
     spdlog::info("        Possible options:");
     spdlog::info("          wavelength, range, average, measurement_mode, pulse_width");
-    spdlog::info("          threshold, unit, trigger_window");
+    spdlog::info("          threshold, unit");
     spdlog::info("      get_energy");
     spdlog::info("        Gets the current energy measurement");
     spdlog::info("      get_average");
@@ -1091,12 +1091,13 @@ int run_command(int argc, char** argv)
             iols.power_meter->send_max(max);
             spdlog::info("Max reading in current range : {0}",max);
           }
-          else if (setting == "trigger_window")
-          {
-            uint16_t window;
-            iols.power_meter->trigger_window(0,window);
-            spdlog::info("Trigger window : {0} us",window);
-          }
+          // this command does not exist in the Vega
+          // else if (setting == "trigger_window")
+          // {
+          //   uint16_t window;
+          //   iols.power_meter->trigger_window(0,window);
+          //   spdlog::info("Trigger window : {0} us",window);
+          // }
           else
           {
             spdlog::error("Unknown command");

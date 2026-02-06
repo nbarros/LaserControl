@@ -24,7 +24,7 @@ namespace device {
       m_e_threshold(1),
       m_ave_query_state(aNone),
       m_pulse_length(0),
-      m_interval_between_cmds_ms(20)
+      m_interval_between_cmds_ms(1)
 
       {
     // override the prefix

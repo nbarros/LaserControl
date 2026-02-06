@@ -942,7 +942,7 @@ namespace device {
     energy_flag(status);
     if (status)
     {
-      printf("Energy is ready, sending SE command\n");
+      // printf("Energy is ready, sending SE command\n");
       send_energy(energy);
     }
     return status;

@@ -467,6 +467,9 @@ namespace device {
 #endif
     if (resp.size() < 2) new_val = false;
     new_val = (std::stol(resp.substr(1)) == 0)?false:true;
+#ifdef DEBUG
+    std::cout << "PowerMeter::energy_flag : returning [" << new_val << "]" << std::endl;
+#endif
   }
 
   void PowerMeter::energy_ready(bool &new_val)
@@ -939,6 +942,7 @@ namespace device {
     energy_flag(status);
     if (status)
     {
+      printf("Energy is ready, sending SE command\n");
       send_energy(energy);
     }
     return status;

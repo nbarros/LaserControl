@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <map>
+#include <mutex>
 #include <Device.hh>
 
 namespace device {
@@ -311,6 +312,8 @@ private:
 
   bool send_cmd(const std::string cmd, std::string &resp, bool repeat = true);
   void init_pulse_lengths();
+
+  std::mutex m_cmd_mutex;
 
   MeasurementMode m_mmode;
   int16_t m_range;

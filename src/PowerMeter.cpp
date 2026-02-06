@@ -1285,6 +1285,7 @@ namespace device {
 
   bool PowerMeter::send_cmd(const std::string cmd, std::string &resp, bool repeat)
   {
+    const std::lock_guard<std::mutex> lock(m_cmd_mutex);
 #ifdef DEBUG
     std::cout << "PowerMeter::send_cmd : Sending query [" << cmd << "]" << std::endl;
 #endif

@@ -39,16 +39,16 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
   // termination of the writes. Had to overload the functions
 
   // open the serial port with a 1s timeout by default
-  m_serial.setBaudrate(m_baud);
-  m_serial.setPort(m_comport);
-  m_serial.setBytesize(serial::eightbits);
-  m_serial.setParity(serial::parity_none);
+  m_serial.set_baudrate(m_baud);
+  m_serial.set_port(m_comport);
+  m_serial.set_bytesize(serial::eightbits);
+  m_serial.set_parity(serial::parity_none);
   m_timeout_ms = 50;
   serial::Timeout t = serial::Timeout::simpleTimeout(m_timeout_ms);
-  m_serial.setTimeout(t);
-  m_serial.setStopbits(serial::stopbits_one);
+  m_serial.set_timeout(t);
+  m_serial.set_stopbits(serial::stopbits_one);
   m_serial.open();
-  if (!m_serial.isOpen())
+  if (!m_serial.is_open())
   {
 #ifdef DEBUG
     std::cerr << "Failed to open the port ["<< m_comport << ":" << m_baud << "]" << std::endl;
@@ -63,7 +63,7 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
 
 Attenuator::~Attenuator ()
 {
-  if (m_serial.isOpen())
+  if (m_serial.is_open())
   {
     m_serial.close();
   }
@@ -329,17 +329,13 @@ void Attenuator::set_max_speed(const uint32_t speed)
 
 const std::string Attenuator::get_status_raw()
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   std::string msg = "p";
-  bool st = write_cmd(msg);
+  std::string resp;
+  bool st = exchange_cmd(msg, resp);
   if (!st)
   {
     throw serial::IOException(__FILE__,__LINE__,"Failed to send get status command");
-  }
-  std::string resp;
-  st = read_cmd(resp);
-  if (!st)
-  {
-    throw serial::IOException(__FILE__,__LINE__,"Failed to read status");
   }
 #ifdef DEBUG
   std::cout << "Attenuator::get_status_raw : Resp ["<< resp << "]" << std::endl;
@@ -351,17 +347,13 @@ const std::string Attenuator::get_status_raw()
 /// This command returns a string finished with 0x0A followed by 0x0D (\r\n)
 void Attenuator::refresh_status()
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   std::string msg= "pc";
-  bool st = write_cmd(msg);
+  std::string resp;
+  bool st = exchange_cmd(msg, resp);
   if (!st)
   {
     throw serial::IOException(__FILE__,__LINE__,"Failed to send get status command");
-  }
-  std::string resp;
-  st = read_cmd(resp);
-  if (!st)
-  {
-    throw serial::IOException(__FILE__,__LINE__,"Failed to read status");
   }
 #ifdef DEBUG
   std::cout << "Attenuator::refresh_status : Resp ["<< resp << "]" << std::endl;
@@ -427,18 +419,14 @@ void Attenuator::refresh_status()
 
 void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   // query status and position of the attenuator motor
   std::string msg("o");
-  bool st = write_cmd(msg);
+  std::string resp;
+  bool st = exchange_cmd(msg, resp);
   if (!st)
   {
     throw serial::IOException(__FILE__,__LINE__,"Failed to send get position command");
-  }
-  std::string resp;
-  st = read_cmd(resp);
-  if (!st)
-  {
-    throw serial::IOException(__FILE__,__LINE__,"Failed to read position");
   }
   // the answer already comes stripped from the carriage return '\r'
 #ifdef DEBUG
@@ -570,16 +558,12 @@ void Attenuator::set_serial_number(const std::string sn)
 
 void Attenuator::get_serial_number(std::string &sn)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   std::string cmd = "n";
-  bool st = write_cmd(cmd);
+  bool st = exchange_cmd(cmd, sn);
   if (!st)
   {
-    throw serial::IOException(__FILE__,__LINE__,"Failed to send command to get serial number");
-  }
-  st = read_cmd(sn);
-  if (!st)
-  {
-    throw serial::IOException(__FILE__,__LINE__,"Failed to read serial number");
+    throw serial::IOException(__FILE__,__LINE__,"Failed to get serial number");
   }
   //std::string resp = m_serial.readline(0xFFFF, std::string("\r"));
   //#ifdef DEBUG
@@ -658,6 +642,7 @@ const float Attenuator::convert_current(uint16_t val)
 
 bool Attenuator::write_cmd(const std::string cmd, bool repeat)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   bool st = Device::write_cmd(cmd);
   if (!st)
   {
@@ -680,6 +665,7 @@ bool Attenuator::write_cmd(const std::string cmd, bool repeat)
 
 bool Attenuator::read_cmd(std::string &answer, bool repeat)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   // wait for the port to be ready
   size_t nbytes = 0;
   // only do this wait if the timeout is not 0

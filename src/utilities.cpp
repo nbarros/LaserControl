@@ -7,7 +7,7 @@
 
 #include <utilities.hh>
 #include <iostream>
-#include <serial/serial.h>
+#include <asio_serial/serial.hpp>
 #include <sstream>
 #include <set>
 

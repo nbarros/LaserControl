@@ -9,7 +9,8 @@
 #define INCLUDE_DEVICE_HH_
 #include <string>
 #include <cstdint>
-#include <serial/serial.h>
+#include <mutex>
+#include <asio_serial/serial.hpp>
 
 //#define DEBUG 1
 namespace device
@@ -25,16 +26,20 @@ namespace device
     Device (const char* port, const uint32_t baud_rate);
     virtual ~Device ();
 
-    bool is_open() {return m_serial.isOpen();}
+    bool is_open();
 
-    void close() {m_serial.close();}
+    void close();
 
     void set_timeout(const uint32_t ms) { m_timeout_ms = ms; }
     void get_timeout(uint32_t &ms) {ms = m_timeout_ms;}
 
     void set_com_prefix(const std::string pre) {m_com_pre = pre;}
-    void set_com_suffix(const std::string suf) {m_com_sfx = suf;}
-    void set_read_suffix(const std::string suf) {m_read_sfx = suf;}
+
+    void set_request_suffix(const std::string suffix) { m_request_suffix = suffix; }
+    void set_response_suffix(const std::string suffix) { m_response_suffix = suffix; }
+
+    void set_com_suffix(const std::string suffix) { set_request_suffix(suffix); }
+    void set_read_suffix(const std::string suffix) { set_response_suffix(suffix); }
 
     const std::string get_port() {return m_comport;}
     const uint32_t get_baud() {return m_baud;}
@@ -49,17 +54,22 @@ namespace device
 
     bool read_cmd(std::string &answer);
 
+    bool exchange_cmd(const std::string cmd, std::string &answer);
+
+    std::recursive_mutex& io_mutex() { return m_io_mutex; }
+
     void reset_connection();
 
     std::string m_comport;
     uint32_t m_baud;
 
     std::string m_com_pre;
-    std::string m_com_sfx;
-    std::string m_read_sfx;
+    std::string m_request_suffix;
+    std::string m_response_suffix;
     //
     uint32_t m_timeout_ms;
     serial::Serial m_serial;
+    std::recursive_mutex m_io_mutex;
 
 
   private:

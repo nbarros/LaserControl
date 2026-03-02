@@ -7,7 +7,6 @@
 
 #include <Laser.hh>
 #include <iostream>
-#include <serial/serial.h>
 #include <utilities.hh>
 #include <sstream>
 #include <iomanip>
@@ -30,7 +29,7 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
 {
 
   // this is the really messed up truth...the real termination char is the \n
-  m_read_sfx = m_com_sfx;
+  m_response_suffix = m_request_suffix;
   // -- change the timeout to something smaller
   // 50 ms?
   // by default leave timeout to max
@@ -57,15 +56,15 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
   // 8 bit byte
   // no parity
   // 1 stop bit
-  m_serial.setPort(m_comport);
-  m_serial.setBaudrate(m_baud);
-  m_serial.setBytesize(serial::eightbits);
-  m_serial.setParity(serial::parity_none);
-  m_serial.setStopbits(serial::stopbits_one);
+  m_serial.set_port(m_comport);
+  m_serial.set_baudrate(m_baud);
+  m_serial.set_bytesize(serial::eightbits);
+  m_serial.set_parity(serial::parity_none);
+  m_serial.set_stopbits(serial::stopbits_one);
   serial::Timeout t = serial::Timeout::simpleTimeout(m_timeout_ms);
-  m_serial.setTimeout(t);
+  m_serial.set_timeout(t);
   m_serial.open();
-  if (!m_serial.isOpen())
+  if (!m_serial.is_open())
   {
     std::ostringstream msg;
     msg << "Failed to open the port ["<< m_comport << ":" << m_baud << "]";
@@ -236,6 +235,7 @@ void Laser::single_shot()
 
 void Laser::get_shot_count(uint32_t &count)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   std::string cmd = "SC";
 
    write_cmd(cmd);
@@ -326,6 +326,7 @@ void Laser::security(Security &code,std::string &msg)
 
 void Laser::security(std::string &code)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   /* pp. 42 of manual
    * The response to SE is a 2 digit ASCII code, terminated by a Carriage Return
 character. This response gives the status of the system. The possible values returned are listed in
@@ -454,6 +455,7 @@ void Laser::set_qswitch(uint32_t qs)
 
 bool Laser::write_cmd(const std::string cmd)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   bool ret = Device::write_cmd(cmd);
 //  printf("Exit from write_cmd. Going to sleep for a bit\n");
 
@@ -469,12 +471,13 @@ bool Laser::write_cmd(const std::string cmd)
 
 bool Laser::read_cmd(std::string &answer)
 {
+  std::lock_guard<std::recursive_mutex> lock(io_mutex());
   // wait for the port to be ready
   size_t nbytes = 0;
   // only do this wait if the timeout is not 0
   if (m_wait_read)
   {
-    if(!m_serial.waitReadable())
+    if(!m_serial.wait_readable())
     {
   #ifdef DEBUG
     std::cout << "Laser::read_cmd : Timed out waiting for a readable state. Attempting to read anyway." << std::endl;
@@ -482,7 +485,7 @@ bool Laser::read_cmd(std::string &answer)
     }
   }
   // Need to read it twice...the first to get the echo command, and the second to get the answer
-  nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
+  nbytes = m_serial.readline(answer,0xFFFF,m_response_suffix);
 #ifdef DEBUG
   std::cout << "Laser::read_cmd : Received " << nbytes << " bytes with answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
@@ -490,20 +493,20 @@ bool Laser::read_cmd(std::string &answer)
   {
     // retry
     reset_connection();
-    nbytes = m_serial.readline(answer,0xFFFF,m_read_sfx);
+    nbytes = m_serial.readline(answer,0xFFFF,m_response_suffix);
     if (nbytes == 0)
     {
       return false;
     }
   }
-  else if (nbytes <= m_read_sfx.length())
+  else if (nbytes <= m_response_suffix.length())
   {
     // got something unexpected
     return false;
   }
   else
   {
-    answer.erase(answer.size()-m_read_sfx.length());
+    answer.erase(answer.size()-m_response_suffix.length());
   }
 #ifdef DEBUG
   std::cout << "Laser::read_cmd : Trimmed answer [" << util::escape(answer.c_str()) << "]" << std::endl;

@@ -29,24 +29,24 @@ namespace device {
       {
     // override the prefix
     m_com_pre = "$";
-    m_com_sfx = "\r\n";
-    m_read_sfx= "\r\n";
+    m_request_suffix = "\r\n";
+    m_response_suffix= "\r\n";
     // initialize to something unrealistic
     m_threshold_ranges = {0xFFFF,0xFFFF};
     // this timeout is insane...
     m_timeout_ms = 1000;
 
     // initialize the serial connection
-    m_serial.setPort(m_comport);
-    m_serial.setBaudrate(m_baud);
-    m_serial.setBytesize(serial::eightbits);
-    m_serial.setParity(serial::parity_none);
+    m_serial.set_port(m_comport);
+    m_serial.set_baudrate(m_baud);
+    m_serial.set_bytesize(serial::eightbits);
+    m_serial.set_parity(serial::parity_none);
     serial::Timeout t = serial::Timeout::simpleTimeout(m_timeout_ms);
-    m_serial.setTimeout(t);
-    m_serial.setStopbits(serial::stopbits_one);
+    m_serial.set_timeout(t);
+    m_serial.set_stopbits(serial::stopbits_one);
 
     m_serial.open();
-    if (!m_serial.isOpen())
+    if (!m_serial.is_open())
     {
       std::ostringstream msg;
       msg << "Failed to open the port ["<< m_comport << ":" << m_baud << "]";
@@ -1269,14 +1269,6 @@ namespace device {
   }
 
 
-  //void PowerMeter::set_measurement_mode(const uint16_t mode)
-  //{
-  //  switch(mode)
-  //  {
-  //    case 0: // passive
-  //  }
-  //}
-
   ///
   ///
   /// PRIVATE METHODS
@@ -1289,7 +1281,7 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_cmd : Sending query [" << cmd << "]" << std::endl;
 #endif
-    bool st = write_cmd(cmd);
+    bool st = exchange_cmd(cmd, resp);
     if (!st)
     {
       if (repeat)
@@ -1297,27 +1289,7 @@ namespace device {
         std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
         reset_connection();
         std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
-        st = write_cmd(cmd);
-        if (!st)
-        {
-          return false;
-        }
-      }
-      else
-      {
-        return false;
-      }
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
-    st = read_cmd(resp);
-    if (!st )
-    {
-      if (repeat)
-      {
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
-        reset_connection();
-        std::this_thread::sleep_for(std::chrono::milliseconds(m_interval_between_cmds_ms));
-        return read_cmd(resp);
+        return exchange_cmd(cmd, resp);
       }
       else
       {

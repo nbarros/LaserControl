@@ -4,6 +4,8 @@ project(
   controlLibrary
   VERSION 1.1
   LANGUAGES CXX)
+
+find_package(Boost REQUIRED COMPONENTS system)
  
 # We need c++11
 set(CMAKE_CXX_STANDARD 11 CACHE STRING "The C++ standard to use")
@@ -44,24 +46,18 @@ set(LIB_SRC_FILES ${PROJECT_SOURCE_DIR}/src/Attenuator.cpp
 				  ${PROJECT_SOURCE_DIR}/src/Device.cpp 
 				  ${PROJECT_SOURCE_DIR}/src/Laser.cpp 
 				  ${PROJECT_SOURCE_DIR}/src/PowerMeter.cpp
-				  ${PROJECT_SOURCE_DIR}/src/AttenuatorSim.cpp
-				  ${PROJECT_SOURCE_DIR}/src/LaserSim.cpp 
-				  ${PROJECT_SOURCE_DIR}/src/PowerMeterSim.cpp
-				  ${PROJECT_SOURCE_DIR}/src/serial.cc 
+                  ${PROJECT_SOURCE_DIR}/src/asio_serial.cpp 
 				  ${PROJECT_SOURCE_DIR}/src/utilities.cpp)
 
 #				  ${PROJECT_SOURCE_DIR}/src/mem_utils.cpp)
 if(APPLE)
     # If OSX
-    list(APPEND LIB_SRC_FILES src/impl/unix.cc)
     list(APPEND LIB_SRC_FILES src/impl/list_ports/list_ports_osx.cc)
 elseif(UNIX)
     # If unix
-    list(APPEND LIB_SRC_FILES src/impl/unix.cc)
     list(APPEND LIB_SRC_FILES src/impl/list_ports/list_ports_linux.cc)
 else()
     # If windows
-    list(APPEND LIB_SRC_FILES src/impl/win.cc)
     list(APPEND LIB_SRC_FILES src/impl/list_ports/list_ports_win.cc)
 endif()
 
@@ -69,7 +65,8 @@ endif()
 # add_definitions(-DDEBUG)
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
-target_include_directories(LaserControl PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(LaserControl PUBLIC ${PROJECT_SOURCE_DIR}/include ${Boost_INCLUDE_DIRS})
+target_link_libraries(LaserControl PUBLIC ${Boost_LIBRARIES})
 #set(LIB_DAC_FILES ${PROJECT_SOURCE_DIR}/src/AD5339.cpp)
 #add_library(DAC STATIC ${LIB_DAC_FILES})
 #target_compile_features(DAC PUBLIC cxx_std_11)

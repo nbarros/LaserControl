@@ -7,7 +7,7 @@
  * http://opensource.org/licenses/MIT
  */
 
-#include "serial/serial.h"
+#include <asio_serial/serial.hpp>
 #include <tchar.h>
 #include <windows.h>
 #include <setupapi.h>

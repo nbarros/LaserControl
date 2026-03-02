@@ -6,6 +6,8 @@ project(
   LANGUAGES CXX)
 
 find_package(Boost REQUIRED COMPONENTS system)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
  
 # We need c++11
 set(CMAKE_CXX_STANDARD 11 CACHE STRING "The C++ standard to use")
@@ -66,7 +68,7 @@ endif()
 add_library(LaserControl STATIC ${LIB_SRC_FILES})
 target_compile_features(LaserControl PUBLIC cxx_std_11)
 target_include_directories(LaserControl PUBLIC ${PROJECT_SOURCE_DIR}/include ${Boost_INCLUDE_DIRS})
-target_link_libraries(LaserControl PUBLIC ${Boost_LIBRARIES})
+target_link_libraries(LaserControl PUBLIC ${Boost_LIBRARIES} Threads::Threads)
 #set(LIB_DAC_FILES ${PROJECT_SOURCE_DIR}/src/AD5339.cpp)
 #add_library(DAC STATIC ${LIB_DAC_FILES})
 #target_compile_features(DAC PUBLIC cxx_std_11)

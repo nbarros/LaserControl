@@ -347,6 +347,10 @@ const std::string Attenuator::get_status_raw()
   std::cout << "Attenuator::get_status_raw : Resp ["<< resp << "]" << std::endl;
 #endif
   // drop the echoed 'p'
+  if (resp.size() < 1)
+  {
+    util::throw_parse_error("Attenuator::get_status_raw", "response too short");
+  }
   return resp.substr(1);
 }
 
@@ -369,7 +373,7 @@ void Attenuator::refresh_status()
   // so, lets just get rid of them
   if (resp.size() < 2)
   {
-    throw std::runtime_error("Attenuator::refresh_status parse error: response too short");
+    util::throw_parse_error("Attenuator::refresh_status", "response too short");
   }
   resp = resp.substr(2);
   // now let's tokenize the remaining string
@@ -410,7 +414,7 @@ void Attenuator::refresh_status()
   }
   catch (const std::exception& ex)
   {
-    throw std::runtime_error(std::string("Attenuator::refresh_status parse error: ") + ex.what());
+    util::throw_parse_error("Attenuator::refresh_status", ex);
   }
   // 13 : reserved
   // 14 : reserved
@@ -459,7 +463,7 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
   // drop the first byte, as it is the echoed command 'o'
   if (resp.size() < 1)
   {
-    throw std::runtime_error("Attenuator::get_position parse error: response too short");
+    util::throw_parse_error("Attenuator::get_position", "response too short");
   }
   resp = resp.substr(1);
 #ifdef DEBUG
@@ -484,7 +488,7 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
   }
   catch (const std::exception& ex)
   {
-    throw std::runtime_error(std::string("Attenuator::get_position parse error: ") + ex.what());
+    util::throw_parse_error("Attenuator::get_position", ex);
   }
 #ifdef DEBUG
       std::cout << "Attenuator::get_position : status ["<< status << "] pos [" << position << "]" << std::endl;

@@ -297,7 +297,7 @@ void Laser::get_shot_count(uint32_t &count)
    }
    catch (const std::exception& ex)
    {
-     throw std::runtime_error(std::string("Laser::get_shot_count parse error: ") + ex.what());
+     util::throw_parse_error("Laser::get_shot_count", ex);
    }
    //FIXME: This may require revising
    // manual states
@@ -333,7 +333,7 @@ void Laser::security(uint16_t &code,std::string &msg)
   }
   catch (const std::exception& ex)
   {
-    throw std::runtime_error(std::string("Laser::security parse error: ") + ex.what());
+    util::throw_parse_error("Laser::security", ex);
   }
 }
 
@@ -347,7 +347,7 @@ void Laser::security(Security &code,std::string &msg)
   }
   catch (const std::exception& ex)
   {
-    throw std::runtime_error(std::string("Laser::security parse error: ") + ex.what());
+    util::throw_parse_error("Laser::security", ex);
   }
 }
 
@@ -405,6 +405,10 @@ Table 6 below.
 #endif
   // the second is the answer
   resp = lines.at(1);
+  if (resp.empty())
+  {
+    util::throw_parse_error("Laser::security", "empty response token");
+  }
   resp.erase(resp.size()-1);
   //read_cmd(resp);
 

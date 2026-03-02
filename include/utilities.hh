@@ -13,6 +13,8 @@
 #include <map>
 #include <set>
 #include <cstdint>
+#include <exception>
+#include <stdexcept>
 
 namespace util {
 
@@ -36,6 +38,16 @@ int char2int(const char c);
 void enumerate_ports();
 
 std::string find_port(std::string param);
+
+[[noreturn]] inline void throw_parse_error(const std::string& method, const std::string& detail)
+{
+	throw std::runtime_error(method + " parse error: " + detail);
+}
+
+[[noreturn]] inline void throw_parse_error(const std::string& method, const std::exception& ex)
+{
+	throw_parse_error(method, ex.what());
+}
 
 
 template <typename T>

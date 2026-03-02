@@ -174,8 +174,15 @@ namespace device {
     std::cout << "PowerMeter::get_average_flag : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
     // strip the leading * and the trailing \n\r
-    resp = resp.substr(1,resp.size() - 3);
-    flag = (std::stol(resp)==0)?false:true;
+    try
+    {
+      const std::string parsed = resp.substr(1,resp.size() - 3);
+      flag = (std::stol(parsed)==0)?false:true;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::get_average_flag", ex);
+    }
   }
 
   void PowerMeter::average_query(const AQSetting q, AQSetting &answer)
@@ -206,7 +213,16 @@ namespace device {
     std::cout << "PowerMeter::get_average_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
     // the third byte is the setting that is still in place
-    a = std::stoul(resp.substr(2,1)) & 0xFFFF;
+    uint16_t parsed_answer = 0;
+    try
+    {
+      parsed_answer = std::stoul(resp.substr(2,1)) & 0xFFFF;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::average_query", ex);
+    }
+    a = parsed_answer;
 
     // if the map has no entries, fill it
     if (m_ave_windows.size() == 0)
@@ -216,10 +232,15 @@ namespace device {
 #endif
       // the first option is going to be NONE.search for it
       size_t p = resp.find("NONE");
+      if (p == std::string::npos)
+      {
+        util::throw_parse_error("PowerMeter::average_query", "NONE token not found");
+      }
       std::string range = resp.substr(p);
       std::vector<std::string> tokens;
       util::tokenize_string(range, tokens, " ");
 
+      std::map<uint16_t, std::string> parsed_windows;
       uint16_t k = 1;
       for (std::string t : tokens)
       {
@@ -227,10 +248,11 @@ namespace device {
         // only non-empty tokens are added
         if (t.size())
         {
-          m_ave_windows.insert({k,t});
+          parsed_windows.insert({k,t});
           k++;
         }
       }
+      m_ave_windows = parsed_windows;
     }
   }
 
@@ -269,15 +291,23 @@ namespace device {
     }
 #endif
 
-    // however the first token is the current setting
-    current_setting = std::stol(tokens.at(0)) & 0xFFFF;
+    int16_t parsed_setting = 0;
+    try
+    {
+      // however the first token is the current setting
+      parsed_setting = std::stol(tokens.at(0)) & 0xFFFF;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::get_all_ranges", ex);
+    }
 
     // remove that token
     //tokens.pop_front();
     tokens.erase(tokens.begin());
 
     // now clear the map
-    m_ranges.clear();
+    std::map<int16_t, std::string> parsed_ranges;
     // the first token should be "AUTO"
     int counter = 0;
     for (std::string entry: tokens)
@@ -285,9 +315,11 @@ namespace device {
 #ifdef DEBUG
       std::cout << "PowerMeter::get_all_ranges : Adding entry [" << counter << " : " << entry << "]" << std::endl;
 #endif
-      m_ranges.insert({counter,entry});
+      parsed_ranges.insert({counter,entry});
       counter ++;
     }
+    current_setting = parsed_setting;
+    m_ranges = parsed_ranges;
   }
 
   // the logic is very simular to the previous method (for ranges)
@@ -369,7 +401,14 @@ namespace device {
     //char s= resp.at(0);
     //success = (s == '*')?true:false;
     // the third byte is the setting that is still in place
-    answer = static_cast<BC20>(std::stol(resp.substr(2,1)));
+    try
+    {
+      answer = static_cast<BC20>(std::stol(resp.substr(2,1)));
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::bc20_sensor_mode", ex);
+    }
   }
 
   void PowerMeter::diffuser_query(const DiffuserSetting s, DiffuserSetting &answer)
@@ -407,7 +446,14 @@ namespace device {
       // all we care is to get the currently registered setting
       // and since we already ruled out that it was NA, then
       // we can simply do a cast
-      answer = static_cast<DiffuserSetting>(std::stol(resp.substr(2,1)));
+      try
+      {
+        answer = static_cast<DiffuserSetting>(std::stol(resp.substr(2,1)));
+      }
+      catch (const std::exception& ex)
+      {
+        util::throw_parse_error("PowerMeter::diffuser_query", ex);
+      }
     }
   }
 
@@ -438,9 +484,19 @@ namespace device {
 #ifdef DEBUG
       std::cout << "PowerMeter::exposure_energy : Found " << tokens.size() << " entries (expected 4)" << std::endl;
 #endif
-      energy = std::stod(tokens.at(1));
-      pulses = std::stoul(tokens.at(2));
-      et = std::stoul(tokens.at(3));
+      try
+      {
+        const double parsed_energy = std::stod(tokens.at(1));
+        const uint32_t parsed_pulses = std::stoul(tokens.at(2));
+        const uint32_t parsed_et = std::stoul(tokens.at(3));
+        energy = parsed_energy;
+        pulses = parsed_pulses;
+        et = parsed_et;
+      }
+      catch (const std::exception& ex)
+      {
+        util::throw_parse_error("PowerMeter::exposure_energy", ex);
+      }
     }
     else
     {
@@ -471,7 +527,14 @@ namespace device {
     std::cout << "PowerMeter::energy_flag : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
     if (resp.size() < 2) new_val = false;
-    new_val = (std::stol(resp.substr(1)) == 0)?false:true;
+    try
+    {
+      new_val = (std::stol(resp.substr(1)) == 0)?false:true;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::energy_flag", ex);
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_flag : returning [" << new_val << "]" << std::endl;
 #endif
@@ -495,7 +558,14 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_ready : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    new_val = (std::stol(resp.substr(1)) == 0)?false:true;
+    try
+    {
+      new_val = (std::stol(resp.substr(1)) == 0)?false:true;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::energy_ready", ex);
+    }
   }
 
   //Note: This is *NOT* the method you want to use
@@ -520,9 +590,16 @@ namespace device {
     std::cout << "PowerMeter::energy_threshold : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
-    answer = std::stoul(resp.substr(1,1));
-
-    m_e_threshold = answer;
+    try
+    {
+      const uint32_t parsed_answer = std::stoul(resp.substr(1,1));
+      answer = parsed_answer;
+      m_e_threshold = parsed_answer;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::energy_threshold", ex);
+    }
   }
 
   void PowerMeter::force_energy(bool &success)
@@ -592,7 +669,14 @@ namespace device {
       // all we care is to get the currently registered setting
       // and since we already ruled out that it was NA, then
       // we can simply do a cast
-      answer = static_cast<DiffuserSetting>(std::stol(resp.substr(2,1)));
+      try
+      {
+        answer = static_cast<DiffuserSetting>(std::stol(resp.substr(2,1)));
+      }
+      catch (const std::exception& ex)
+      {
+        util::throw_parse_error("PowerMeter::filter_query", ex);
+      }
     }
   }
 
@@ -641,18 +725,29 @@ namespace device {
     // tokenize it and get rid of first entry
     std::vector<std::string> tokens;
     util::tokenize_string(rr, tokens, " ");
-    tokens.erase(tokens.begin());
-    type = tokens.at(0);
-    sn = tokens.at(1);
-    name = tokens.at(2);
-    uint32_t word = std::stoul(tokens.at(3),0, 16);
+    try
+    {
+      tokens.erase(tokens.begin());
+      const std::string parsed_type = tokens.at(0);
+      const std::string parsed_sn = tokens.at(1);
+      const std::string parsed_name = tokens.at(2);
+      const uint32_t word = std::stoul(tokens.at(3),0, 16);
 
-    // power is bit 0
-    power = word & (1 << 0);
-    // energy is bit 1
-    energy = word & (1 << 0);
-    // frequency is bit 31
-    freq = word & (1 << 31);
+      const bool parsed_power = word & (1 << 0);
+      const bool parsed_energy = word & (1 << 0);
+      const bool parsed_freq = word & (1 << 31);
+
+      type = parsed_type;
+      sn = parsed_sn;
+      name = parsed_name;
+      power = parsed_power;
+      energy = parsed_energy;
+      freq = parsed_freq;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::head_info", ex);
+    }
 
 #ifdef DEBUG
     std::cout << "PowerMeter::head_info : \n"
@@ -713,10 +808,20 @@ namespace device {
     std::vector<std::string> tokens;
     util::tokenize_string(rr, tokens, " ");
     // drop the first token
-    tokens.erase(tokens.begin());
-    id = tokens.at(0);
-    sn = tokens.at(1);
-    name = tokens.at(2);
+    try
+    {
+      tokens.erase(tokens.begin());
+      const std::string parsed_id = tokens.at(0);
+      const std::string parsed_sn = tokens.at(1);
+      const std::string parsed_name = tokens.at(2);
+      id = parsed_id;
+      sn = parsed_sn;
+      name = parsed_name;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::inst_info", ex);
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::inst_info : \n"
         << "ID      : " << id
@@ -746,7 +851,14 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::mains_frequency : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    answer = std::stoul(resp.substr(2,1)) & 0xFFFF;
+    try
+    {
+      answer = std::stoul(resp.substr(2,1)) & 0xFFFF;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::mains_frequency", ex);
+    }
   }
 
 
@@ -763,7 +875,14 @@ namespace device {
     std::cout << "PowerMeter::max_freq : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
 
-    value = std::stoul(rr.substr(1));
+    try
+    {
+      value = std::stoul(rr.substr(1));
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::max_freq", ex);
+    }
   }
 
   void PowerMeter::measurement_mode(const MeasurementMode q, MeasurementMode &a)
@@ -796,7 +915,14 @@ namespace device {
     {
       // we were querying current setting. All we care about is
       // the second byte
-      a = std::stoi(resp.substr(1));
+      try
+      {
+        a = std::stoi(resp.substr(1));
+      }
+      catch (const std::exception& ex)
+      {
+        util::throw_parse_error("PowerMeter::measurement_mode", ex);
+      }
     }
     else {
       // we are trying to set a new setting
@@ -837,7 +963,14 @@ namespace device {
     {
       // we were querying current setting. All we care about is
       // the second byte
-      answer = std::stoul(resp.substr(1,1));
+      try
+      {
+        answer = std::stoul(resp.substr(1,1));
+      }
+      catch (const std::exception& ex)
+      {
+        util::throw_parse_error("PowerMeter::pulse_length", ex);
+      }
 
       // if the map is not filled, then fill it
       if (m_pulse_lengths.size() == 0)
@@ -854,15 +987,17 @@ namespace device {
         std::vector<std::string> tokens;
         util::tokenize_string(resp, tokens, " ");
         // now insert these into the map
+        std::map<uint16_t, std::string> parsed_lengths;
         uint16_t k = 1;
         for (std::string entry: tokens)
         {
 #ifdef DEBUG
           std::cout << "PowerMeter::pulse_length : Adding entry [" << k << " : " << entry << "]" << std::endl;
 #endif
-          m_pulse_lengths.insert({k,entry});
+          parsed_lengths.insert({k,entry});
           k++;
         }
+        m_pulse_lengths = parsed_lengths;
       }
     }
     else {
@@ -875,7 +1010,14 @@ namespace device {
       } else
       {
         // failed
-        answer = std::stoul(resp.substr(1,1)) & 0xFFFF;
+        try
+        {
+          answer = std::stoul(resp.substr(1,1)) & 0xFFFF;
+        }
+        catch (const std::exception& ex)
+        {
+          util::throw_parse_error("PowerMeter::pulse_length", ex);
+        }
       }
     }
   }
@@ -913,7 +1055,14 @@ namespace device {
     std::cout << "PowerMeter::get_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
     // drop the first byte
-    value = std::stoi(rr.substr(1));
+    try
+    {
+      value = std::stoi(rr.substr(1));
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::get_range", ex);
+    }
   }
 
   /**
@@ -938,7 +1087,14 @@ namespace device {
     std::cout << "PowerMeter::send_energy : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
     // drop the first byte
-    value = std::stod(rr.substr(1));
+    try
+    {
+      value = std::stod(rr.substr(1));
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::send_energy", ex);
+    }
   }
 
   bool PowerMeter::read_energy(double &energy)
@@ -975,7 +1131,14 @@ namespace device {
     else
     {
       // drop the first byte
-      value = std::stod(rr.substr(1));
+      try
+      {
+        value = std::stod(rr.substr(1));
+      }
+      catch (const std::exception& ex)
+      {
+        util::throw_parse_error("PowerMeter::send_frequency", ex);
+      }
     }
   }
 
@@ -993,7 +1156,14 @@ namespace device {
     std::cout << "PowerMeter::send_average : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
     // drop the first byte
-    value = std::stod(rr.substr(1));
+    try
+    {
+      value = std::stod(rr.substr(1));
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::send_average", ex);
+    }
   }
 
 
@@ -1022,7 +1192,14 @@ namespace device {
     std::cout << "PowerMeter::send_units : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
     // drop the first byte
-    unit = rr.at(1);
+    try
+    {
+      unit = rr.at(1);
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::send_units", ex);
+    }
   }
   void PowerMeter::send_units_long(std::string &unit)
   {
@@ -1044,7 +1221,14 @@ namespace device {
     std::cout << "PowerMeter::send_power : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
     // drop the first byte
-    value = std::stod(rr.substr(1));
+    try
+    {
+      value = std::stod(rr.substr(1));
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::send_power", ex);
+    }
   }
 
   void PowerMeter::send_max(double &value)
@@ -1070,7 +1254,14 @@ namespace device {
     else
     {
       // convert the value
-      value = std::stod(rr);
+      try
+      {
+        value = std::stod(rr);
+      }
+      catch (const std::exception& ex)
+      {
+        util::throw_parse_error("PowerMeter::send_max", ex);
+      }
     }
   }
 
@@ -1142,16 +1333,31 @@ namespace device {
         if (tokens.size() == 3)
         {
           // this should be the usually expected anwer
-          answer = std::stoul(tokens.at(0)) & 0xFFFF;
-          m_e_threshold = answer;
+          uint16_t parsed_answer = 0;
+          uint16_t parsed_min = m_threshold_ranges.first;
+          uint16_t parsed_max = m_threshold_ranges.second;
+          try
+          {
+            parsed_answer = std::stoul(tokens.at(0)) & 0xFFFF;
+            if (m_threshold_ranges.second == 0xFFFF)
+            {
+              parsed_min = std::stoul(tokens.at(1)) & 0xFFFF;
+              parsed_max = std::stoul(tokens.at(2)) & 0xFFFF;
+            }
+          }
+          catch (const std::exception& ex)
+          {
+            util::throw_parse_error("PowerMeter::user_threshold", ex);
+          }
+
+          answer = parsed_answer;
+          m_e_threshold = parsed_answer;
 
           if (m_threshold_ranges.second == 0xFFFF)
           {
             // it has not been set yet
-            uint16_t min = std::stoul(tokens.at(1)) & 0xFFFF;
-            m_threshold_ranges.first = min;
-            uint16_t  max = std::stoul(tokens.at(2)) & 0xFFFF;
-            m_threshold_ranges.second = max;
+            m_threshold_ranges.first = parsed_min;
+            m_threshold_ranges.second = parsed_max;
           }
         }
         else
@@ -1196,12 +1402,22 @@ namespace device {
     }
 #endif
 
-    current = std::stoul(tokens.at(0)) & 0xFFFF;
-    m_e_threshold = current;
-    min = std::stoul(tokens.at(1)) & 0xFFFF;
-    m_threshold_ranges.first = min;
-    max = std::stoul(tokens.at(2)) & 0xFFFF;
-    m_threshold_ranges.second = max;
+    try
+    {
+      const uint16_t parsed_current = std::stoul(tokens.at(0)) & 0xFFFF;
+      const uint16_t parsed_min = std::stoul(tokens.at(1)) & 0xFFFF;
+      const uint16_t parsed_max = std::stoul(tokens.at(2)) & 0xFFFF;
+      current = parsed_current;
+      min = parsed_min;
+      max = parsed_max;
+      m_e_threshold = parsed_current;
+      m_threshold_ranges.first = parsed_min;
+      m_threshold_ranges.second = parsed_max;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::query_user_threshold", ex);
+    }
   }
 
   void PowerMeter::version(std::string &value)
@@ -1309,7 +1525,6 @@ namespace device {
 
   void PowerMeter::init_pulse_lengths()
   {
-    m_pulse_lengths.clear();
     std::string resp;
     // do first a query
     std::string cmd = "MM 0";
@@ -1322,13 +1537,21 @@ namespace device {
     std::vector<std::string> tokens;
     util::tokenize_string(resp, tokens, " ");
     // drop the first token (success)
-    tokens.erase(tokens.begin());
-    // place all others in the map
-    size_t c = 1;
-    for (std::string t : tokens)
+    try
     {
-      m_pulse_lengths.insert({c,t});
-      c++;
+      tokens.erase(tokens.begin());
+      std::map<uint16_t, std::string> parsed_lengths;
+      size_t c = 1;
+      for (std::string t : tokens)
+      {
+        parsed_lengths.insert({c,t});
+        c++;
+      }
+      m_pulse_lengths = parsed_lengths;
+    }
+    catch (const std::exception& ex)
+    {
+      util::throw_parse_error("PowerMeter::init_pulse_lengths", ex);
     }
   }
 

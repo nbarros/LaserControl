@@ -42,7 +42,7 @@ namespace device
         m_baud(baud_rate),
         m_com_pre(""),
         m_request_suffix("\r"),
-      m_timeout_ms(500),
+      m_timeout_ms(100),
       m_is_online(false),
       m_consecutive_failures(0)
   {
@@ -98,8 +98,9 @@ namespace device
   void Device::set_timeout_ms(uint32_t t)
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
-    serial::Timeout to = serial::Timeout::simpleTimeout(t);
-  m_serial.set_timeout(to);
+    m_timeout_ms = t;
+    serial::Timeout to = serial::Timeout::simpleTimeout(m_timeout_ms);
+    m_serial.set_timeout(to);
 
   #ifdef DEBUG
     std::cout << "Device::set_timeout_ms : Setting timeout to [" << t << "] ms" << std::endl;

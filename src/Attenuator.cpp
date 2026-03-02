@@ -367,6 +367,10 @@ void Attenuator::refresh_status()
 
   // the first 2 bytes are the echo of the command that was sent
   // so, lets just get rid of them
+  if (resp.size() < 2)
+  {
+    throw std::runtime_error("Attenuator::refresh_status parse error: response too short");
+  }
   resp = resp.substr(2);
   // now let's tokenize the remaining string
   std::vector<std::string> tokens;
@@ -378,22 +382,36 @@ void Attenuator::refresh_status()
   std::cout << "Attenuator::refresh_status : Have ["<< tokens.size() << "] tokens" << std::endl;
 #endif
 
-  m_op_mode = static_cast<enum OpMode>(std::stol(tokens.at(0)));
-  m_motor_state = static_cast<enum MotorState>(std::stol(tokens.at(1)));
-  m_acceleration = std::stoul(tokens.at(2)) & 0xFF;
-  m_deceleration = std::stoul(tokens.at(3)) & 0xFF;
-  m_max_speed = std::stoul(tokens.at(4));
+  try
+  {
+    const enum OpMode op_mode = static_cast<enum OpMode>(std::stol(tokens.at(0)));
+    const enum MotorState motor_state = static_cast<enum MotorState>(std::stol(tokens.at(1)));
+    const uint16_t acceleration = std::stoul(tokens.at(2)) & 0xFF;
+    const uint16_t deceleration = std::stoul(tokens.at(3)) & 0xFF;
+    const uint32_t max_speed = std::stoul(tokens.at(4));
+    const uint16_t current_move = std::stoul(tokens.at(5)) & 0xFF;
+    const uint16_t current_idle = std::stoul(tokens.at(6)) & 0xFF;
+    const enum Resolution resolution = static_cast<enum Resolution>(std::stoul(tokens.at(8)));
+    const bool motor_enabled = static_cast<bool>(std::stol(tokens.at(9)));
+    const bool reset_on_zero = static_cast<bool>(std::stol(tokens.at(11)));
+    const bool report_on_zero = static_cast<bool>(std::stol(tokens.at(12)));
 
-  m_current_move = std::stoul(tokens.at(5)) & 0xFF;
-  m_current_idle = std::stoul(tokens.at(6)) & 0xFF;
-  // 7 is for step-dir mode
-  m_resolution =  static_cast<enum Resolution>(std::stoul(tokens.at(8)));
-  m_motor_enabled = std::stol(tokens.at(9));
-  // 11 : reserved
-  // reset counter when passing zero position
-  m_reset_on_zero = (std::stol(tokens.at(11))?true:false);
-  // report when position was zeroed (zp)
-  m_report_on_zero = (std::stol(tokens.at(12))?true:false);
+    m_op_mode = op_mode;
+    m_motor_state = motor_state;
+    m_acceleration = acceleration;
+    m_deceleration = deceleration;
+    m_max_speed = max_speed;
+    m_current_move = current_move;
+    m_current_idle = current_idle;
+    m_resolution = resolution;
+    m_motor_enabled = motor_enabled;
+    m_reset_on_zero = reset_on_zero;
+    m_report_on_zero = report_on_zero;
+  }
+  catch (const std::exception& ex)
+  {
+    throw std::runtime_error(std::string("Attenuator::refresh_status parse error: ") + ex.what());
+  }
   // 13 : reserved
   // 14 : reserved
   // 15 : reserved
@@ -439,6 +457,10 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
   std::cout << "Attenuator::get_position : Resp ["<< util::escape(resp.c_str()) << "]" << std::endl;
 #endif
   // drop the first byte, as it is the echoed command 'o'
+  if (resp.size() < 1)
+  {
+    throw std::runtime_error("Attenuator::get_position parse error: response too short");
+  }
   resp = resp.substr(1);
 #ifdef DEBUG
   std::cout << "Attenuator::get_position : Resp ["<< util::escape(resp.c_str()) << "]" << std::endl;
@@ -447,15 +469,23 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
   std::vector<std::string> tokens;
   util::tokenize_string(resp,tokens);
 
-  position = std::stol(tokens.at(1));
-  // check that the status is indeed just one char long
-  if (tokens.at(0).size() != 1)
+  try
   {
-    std::ostringstream msg;
-    msg << "Expected only 1 char as status. Got " << tokens.at(0).size() << "(" << tokens.at(0) << ")";
-    throw std::runtime_error(msg.str());
+    if (tokens.at(0).size() != 1)
+    {
+      std::ostringstream msg;
+      msg << "Expected only 1 char as status. Got " << tokens.at(0).size() << "(" << tokens.at(0) << ")";
+      throw std::runtime_error(msg.str());
+    }
+    const int32_t parsed_position = std::stol(tokens.at(1));
+    const uint16_t parsed_status = std::stoul(tokens.at(0));
+    position = parsed_position;
+    status = parsed_status;
   }
-  status = std::stoul(tokens.at(0));
+  catch (const std::exception& ex)
+  {
+    throw std::runtime_error(std::string("Attenuator::get_position parse error: ") + ex.what());
+  }
 #ifdef DEBUG
       std::cout << "Attenuator::get_position : status ["<< status << "] pos [" << position << "]" << std::endl;
 #endif

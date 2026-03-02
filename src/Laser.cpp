@@ -291,7 +291,14 @@ void Laser::get_shot_count(uint32_t &count)
    std::cout << "Laser::get_shot_count : Trimmed [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
    // according to the python script, the answer we want is in the bytes [3:11]
-   count = stoul(resp); // 9 is the max length
+   try
+   {
+     count = stoul(resp); // 9 is the max length
+   }
+   catch (const std::exception& ex)
+   {
+     throw std::runtime_error(std::string("Laser::get_shot_count parse error: ") + ex.what());
+   }
    //FIXME: This may require revising
    // manual states
    // The response to SC (Shot count) is a 9 digit ASCII code terminated by a Carriage Return
@@ -320,14 +327,28 @@ void Laser::security(uint16_t &code,std::string &msg)
 {
   std::string tmp_code;
   security(tmp_code,msg);
-  code = static_cast<uint16_t>(std::stoul(tmp_code) & 0xFFFF);
+  try
+  {
+    code = static_cast<uint16_t>(std::stoul(tmp_code) & 0xFFFF);
+  }
+  catch (const std::exception& ex)
+  {
+    throw std::runtime_error(std::string("Laser::security parse error: ") + ex.what());
+  }
 }
 
 void Laser::security(Security &code,std::string &msg)
 {
   std::string tmp_code;
   security(tmp_code,msg);
-  code = static_cast<Security>(std::stol(tmp_code));
+  try
+  {
+    code = static_cast<Security>(std::stol(tmp_code));
+  }
+  catch (const std::exception& ex)
+  {
+    throw std::runtime_error(std::string("Laser::security parse error: ") + ex.what());
+  }
 }
 
 void Laser::security(std::string &code)

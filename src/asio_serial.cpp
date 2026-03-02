@@ -33,11 +33,14 @@ uint32_t compute_timeout_ms(uint32_t constant, uint32_t multiplier, size_t size)
 
 }
 
-namespace serial {
+namespace serial 
+{
 
-class Serial::Impl {
+class Serial::Impl 
+{
 public:
-  struct PendingTransaction {
+  struct PendingTransaction 
+  {
     PendingTransaction() : max_size(0) {}
 
     PendingTransaction(const std::string& request_in,
@@ -77,7 +80,8 @@ public:
       tx_sequence_(0)
   {
     io_thread_ = std::thread([this]() { io_.run(); });
-    if (!port_.empty()) {
+    if (!port_.empty()) 
+    {
       open();
     }
   }
@@ -87,34 +91,40 @@ public:
     close();
     work_guard_.reset();
     io_.stop();
-    if (io_thread_.joinable()) {
+    if (io_thread_.joinable()) 
+    {
       io_thread_.join();
     }
   }
 
   void open()
   {
-    if (port_.empty()) {
+    if (port_.empty()) 
+    {
       throw std::invalid_argument("Empty port is invalid.");
     }
-    if (serial_port_.is_open()) {
+    if (serial_port_.is_open()) 
+    {
       throw SerialException("Serial port already open.");
     }
 
     boost::system::error_code ec;
     serial_port_.open(port_, ec);
-    if (ec) {
+    if (ec) 
+    {
       throw IOException(__FILE__, __LINE__, ec.value());
     }
 
     applyPortConfig();
 #if !defined(_WIN32)
     const int flags = ::fcntl(serial_port_.native_handle(), F_GETFL, 0);
-    if (flags == -1) {
+    if (flags == -1) 
+    {
       close();
       throw IOException(__FILE__, __LINE__, errno);
     }
-    if (::fcntl(serial_port_.native_handle(), F_SETFL, flags | O_NONBLOCK) == -1) {
+    if (::fcntl(serial_port_.native_handle(), F_SETFL, flags | O_NONBLOCK) == -1) 
+    {
       close();
       throw IOException(__FILE__, __LINE__, errno);
     }
@@ -123,7 +133,8 @@ public:
 
   void close()
   {
-    if (!serial_port_.is_open()) {
+    if (!serial_port_.is_open()) 
+    {
       return;
     }
     boost::system::error_code ec;
@@ -139,7 +150,8 @@ public:
     return 0;
 #else
     int bytes_available = 0;
-    if (::ioctl(serial_port_.native_handle(), FIONREAD, &bytes_available) == -1) {
+    if (::ioctl(serial_port_.native_handle(), FIONREAD, &bytes_available) == -1) 
+    {
       throw IOException(__FILE__, __LINE__, errno);
     }
     return bytes_available > 0 ? static_cast<size_t>(bytes_available) : 0;
@@ -149,16 +161,20 @@ public:
   bool waitReadable(uint32_t timeout_ms)
   {
     ensureOpen();
-    if (available() > 0) {
+    if (available() > 0) 
+    {
       return true;
     }
-    if (timeout_ms == 0) {
+    if (timeout_ms == 0) 
+    {
       return false;
     }
 
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    while (std::chrono::steady_clock::now() < deadline) {
-      if (available() > 0) {
+    while (std::chrono::steady_clock::now() < deadline) 
+    {
+      if (available() > 0) 
+      {
         return true;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -171,7 +187,8 @@ public:
     const unsigned int parity_bits = (parity_ == parity_none) ? 0U : 1U;
     const unsigned int stop_bits = (stopbits_ == stopbits_two) ? 2U : 1U;
     const unsigned int bits_per_char = 1U + static_cast<unsigned int>(bytesize_) + parity_bits + stop_bits;
-    if (baudrate_ == 0 || bits_per_char == 0 || count == 0) {
+    if (baudrate_ == 0 || bits_per_char == 0 || count == 0) 
+    {
       return;
     }
 
@@ -183,7 +200,8 @@ public:
   size_t read(uint8_t* buffer, size_t size)
   {
     ensureOpen();
-    if (size == 0) {
+    if (size == 0) 
+    {
       return 0;
     }
 
@@ -199,7 +217,8 @@ public:
     size_t total_read = 0;
     while (total_read < size) {
       const size_t bytes_ready = available();
-      if (bytes_ready > 0) {
+      if (bytes_ready > 0) 
+      {
         const size_t chunk = std::min(bytes_ready, size - total_read);
         boost::system::error_code ec;
         const size_t n = serial_port_.read_some(boost::asio::buffer(buffer + total_read, chunk), ec);
@@ -207,14 +226,17 @@ public:
         if (ec) {
           if (ec == boost::asio::error::would_block ||
               ec == boost::asio::error::try_again ||
-              ec == boost::asio::error::interrupted) {
+              ec == boost::asio::error::interrupted) 
+          {
+
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
           }
           throw IOException(__FILE__, __LINE__, ec.value());
         }
 
-        if (n > 0) {
+        if (n > 0) 
+        {
           total_read += n;
           last_byte_time = std::chrono::steady_clock::now();
           continue;
@@ -222,11 +244,13 @@ public:
       }
 
       const auto now = std::chrono::steady_clock::now();
-      if (has_total_timeout && now - start >= std::chrono::milliseconds(total_timeout_ms)) {
+      if (has_total_timeout && now - start >= std::chrono::milliseconds(total_timeout_ms)) 
+      {
         break;
       }
       if (has_interbyte_timeout && total_read > 0 &&
-          now - last_byte_time >= std::chrono::milliseconds(timeout_.inter_byte_timeout)) {
+          now - last_byte_time >= std::chrono::milliseconds(timeout_.inter_byte_timeout)) 
+      {
         break;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -238,7 +262,8 @@ public:
   size_t write(const uint8_t* data, size_t size)
   {
     ensureOpen();
-    if (size == 0) {
+    if (size == 0) 
+    {
       return 0;
     }
 
@@ -248,16 +273,20 @@ public:
     const auto start = std::chrono::steady_clock::now();
 
     size_t total_written = 0;
-    while (total_written < size) {
+    while (total_written < size) 
+    {
       boost::system::error_code ec;
       const size_t n = serial_port_.write_some(boost::asio::buffer(data + total_written, size - total_written), ec);
 
-      if (ec) {
+      if (ec) 
+      {
         if (ec == boost::asio::error::would_block ||
             ec == boost::asio::error::try_again ||
-            ec == boost::asio::error::interrupted) {
+            ec == boost::asio::error::interrupted) 
+        {
           if (has_timeout && std::chrono::steady_clock::now() - start >=
-                               std::chrono::milliseconds(total_timeout_ms)) {
+                               std::chrono::milliseconds(total_timeout_ms)) 
+          {
             break;
           }
           std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -268,7 +297,8 @@ public:
 
       total_written += n;
       if (has_timeout && std::chrono::steady_clock::now() - start >=
-                           std::chrono::milliseconds(total_timeout_ms)) {
+                           std::chrono::milliseconds(total_timeout_ms)) 
+      {
         break;
       }
     }
@@ -284,9 +314,11 @@ public:
     const Serial::TransactionCallback safe_callback = callback ? callback :
       [](bool, const std::string&) {};
 
-    boost::asio::post(io_, [this, request, safe_callback, response_eol, max_size]() {
+    boost::asio::post(io_, [this, request, safe_callback, response_eol, max_size]() 
+    {
       tx_queue_.push_back(PendingTransaction(request, response_eol, max_size, safe_callback));
-      if (!tx_in_progress_) {
+      if (!tx_in_progress_) 
+      {
         startNextTransaction();
       }
     });
@@ -323,7 +355,8 @@ public:
   {
 #if !defined(_WIN32)
     ensureOpen();
-    if (::tcflush(serial_port_.native_handle(), TCIFLUSH) != 0) {
+    if (::tcflush(serial_port_.native_handle(), TCIFLUSH) != 0) 
+    {
       throw IOException(__FILE__, __LINE__, errno);
     }
 #endif
@@ -333,7 +366,8 @@ public:
   {
 #if !defined(_WIN32)
     ensureOpen();
-    if (::tcflush(serial_port_.native_handle(), TCOFLUSH) != 0) {
+    if (::tcflush(serial_port_.native_handle(), TCOFLUSH) != 0) 
+    {
       throw IOException(__FILE__, __LINE__, errno);
     }
 #endif
@@ -343,7 +377,8 @@ public:
   {
 #if !defined(_WIN32)
     ensureOpen();
-    if (::tcsendbreak(serial_port_.native_handle(), duration) != 0) {
+    if (::tcsendbreak(serial_port_.native_handle(), duration) != 0) 
+    {
       throw IOException(__FILE__, __LINE__, errno);
     }
 #endif
@@ -354,7 +389,8 @@ public:
 #if !defined(_WIN32)
     ensureOpen();
     const int request = level ? TIOCSBRK : TIOCCBRK;
-    if (::ioctl(serial_port_.native_handle(), request) != 0) {
+    if (::ioctl(serial_port_.native_handle(), request) != 0) 
+    {
       throw IOException(__FILE__, __LINE__, errno);
     }
 #endif
@@ -387,8 +423,10 @@ public:
     }
 
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
-    while (std::chrono::steady_clock::now() < deadline) {
-      if (get_modem_bits() != initial) {
+    while (std::chrono::steady_clock::now() < deadline) 
+    {
+      if (get_modem_bits() != initial) 
+      {
         return true;
       }
       std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -457,13 +495,15 @@ private:
 
     read_buffer_.consume(read_buffer_.size());
 
-    const uint32_t configured_timeout = timeout_.read_timeout_constant;
-    const uint32_t timeout_ms = (configured_timeout == 0) ? 1000 : configured_timeout;
-    if (timeout_ms != Timeout::max()) {
+    const uint32_t timeout_ms = timeout_.read_timeout_constant;
+    if (timeout_ms > 0 && timeout_ms != Timeout::max()) 
+    {
       tx_timer_.expires_from_now(std::chrono::milliseconds(timeout_ms));
       const uint64_t sequence = tx_sequence_;
-      tx_timer_.async_wait([this, sequence](const boost::system::error_code& ec) {
-        if (ec || !transactionActive(sequence)) {
+      tx_timer_.async_wait([this, sequence](const boost::system::error_code& ec) 
+      {
+        if (ec || !transactionActive(sequence)) 
+        {
           return;
         }
         boost::system::error_code cancel_ec;
@@ -475,12 +515,15 @@ private:
     boost::asio::async_write(
       serial_port_,
       boost::asio::buffer(active_tx_->request),
-      [this, sequence](const boost::system::error_code& ec, size_t) {
-        if (!transactionActive(sequence)) {
+      [this, sequence](const boost::system::error_code& ec, size_t) 
+      {
+        if (!transactionActive(sequence)) 
+        {
           return;
         }
 
-        if (ec) {
+        if (ec) 
+        {
           finishTransaction(false, std::string());
           return;
         }
@@ -489,17 +532,21 @@ private:
           serial_port_,
           read_buffer_,
           active_tx_->response_eol,
-          [this, sequence](const boost::system::error_code& read_ec, size_t bytes_transferred) {
-            if (!transactionActive(sequence)) {
+          [this, sequence](const boost::system::error_code& read_ec, size_t bytes_transferred) 
+          {
+            if (!transactionActive(sequence)) 
+            {
               return;
             }
 
-            if (read_ec) {
+            if (read_ec) 
+            {
               finishTransaction(false, std::string());
               return;
             }
 
-            if (active_tx_->max_size != 0 && bytes_transferred > active_tx_->max_size) {
+            if (active_tx_->max_size != 0 && bytes_transferred > active_tx_->max_size) 
+            {
               finishTransaction(false, std::string());
               return;
             }
@@ -525,13 +572,20 @@ private:
     active_tx_.reset();
     tx_in_progress_ = false;
 
-    finished.callback(success, response);
+    try
+    {
+      finished.callback(success, response);
+    }
+    catch (...)
+    {
+    }
     startNextTransaction();
   }
 
   void ensureOpen() const
   {
-    if (!isOpen()) {
+    if (!isOpen()) 
+    {
       throw PortNotOpenedException("Serial port is not open");
     }
   }
@@ -541,12 +595,14 @@ private:
     boost::system::error_code ec;
 
     serial_port_.set_option(boost::asio::serial_port_base::baud_rate(baudrate_), ec);
-    if (ec) {
+    if (ec) 
+    {
       throw IOException(__FILE__, __LINE__, ec.value());
     }
 
     serial_port_.set_option(boost::asio::serial_port_base::character_size(static_cast<unsigned int>(bytesize_)), ec);
-    if (ec) {
+    if (ec) 
+    {
       throw IOException(__FILE__, __LINE__, ec.value());
     }
 
@@ -561,31 +617,36 @@ private:
         throw std::invalid_argument("Unsupported parity setting");
     }
     serial_port_.set_option(boost::asio::serial_port_base::parity(parity_type), ec);
-    if (ec) {
+    if (ec) 
+    {
       throw IOException(__FILE__, __LINE__, ec.value());
     }
 
     boost::asio::serial_port_base::stop_bits::type stop_bits_type;
-    switch (stopbits_) {
+    switch (stopbits_) 
+    {
       case stopbits_one: stop_bits_type = boost::asio::serial_port_base::stop_bits::one; break;
       case stopbits_one_point_five: stop_bits_type = boost::asio::serial_port_base::stop_bits::onepointfive; break;
       case stopbits_two: stop_bits_type = boost::asio::serial_port_base::stop_bits::two; break;
       default: throw std::invalid_argument("Unsupported stop bits setting");
     }
     serial_port_.set_option(boost::asio::serial_port_base::stop_bits(stop_bits_type), ec);
-    if (ec) {
+    if (ec) 
+    {
       throw IOException(__FILE__, __LINE__, ec.value());
     }
 
     boost::asio::serial_port_base::flow_control::type flow_control_type;
-    switch (flowcontrol_) {
+    switch (flowcontrol_) 
+    {
       case flowcontrol_none: flow_control_type = boost::asio::serial_port_base::flow_control::none; break;
       case flowcontrol_software: flow_control_type = boost::asio::serial_port_base::flow_control::software; break;
       case flowcontrol_hardware: flow_control_type = boost::asio::serial_port_base::flow_control::hardware; break;
       default: throw std::invalid_argument("Unsupported flow control setting");
     }
     serial_port_.set_option(boost::asio::serial_port_base::flow_control(flow_control_type), ec);
-    if (ec) {
+    if (ec) 
+    {
       throw IOException(__FILE__, __LINE__, ec.value());
     }
   }
@@ -595,7 +656,8 @@ private:
   {
     ensureOpen();
     int status_bits = 0;
-    if (::ioctl(serial_port_.native_handle(), TIOCMGET, &status_bits) != 0) {
+    if (::ioctl(serial_port_.native_handle(), TIOCMGET, &status_bits) != 0) 
+    {
       throw IOException(__FILE__, __LINE__, errno);
     }
     return status_bits;
@@ -607,7 +669,8 @@ private:
     if (level) status |= bit;
     else status &= ~bit;
 
-    if (::ioctl(serial_port_.native_handle(), TIOCMSET, &status) != 0) {
+    if (::ioctl(serial_port_.native_handle(), TIOCMSET, &status) != 0) 
+    {
       throw IOException(__FILE__, __LINE__, errno);
     }
   }
@@ -703,9 +766,11 @@ size_t Serial::readline(std::string& buffer, size_t size, std::string eol)
     }
 
     local.push_back(byte);
-    if (local.size() >= eol_len) {
+    if (local.size() >= eol_len) 
+    {
       const char* end = reinterpret_cast<const char*>(local.data() + local.size() - eol_len);
-      if (std::string(end, eol_len) == eol) {
+      if (std::string(end, eol_len) == eol) 
+      {
         break;
       }
     }
@@ -734,11 +799,14 @@ std::vector<std::string> Serial::readlines(size_t size, std::string eol)
   const size_t eol_len = eol.length();
   size_t start_of_line = 0;
 
-  while (local.size() < size) {
+  while (local.size() < size) 
+  {
     uint8_t byte = 0;
     const size_t bytes_read = m_impl->read(&byte, 1);
-    if (bytes_read == 0) {
-      if (start_of_line < local.size()) {
+    if (bytes_read == 0) 
+    {
+      if (start_of_line < local.size()) 
+      {
         lines.emplace_back(reinterpret_cast<const char*>(local.data() + start_of_line),
                            local.size() - start_of_line);
       }
@@ -748,7 +816,8 @@ std::vector<std::string> Serial::readlines(size_t size, std::string eol)
     local.push_back(byte);
     if (local.size() >= eol_len) {
       const char* end = reinterpret_cast<const char*>(local.data() + local.size() - eol_len);
-      if (std::string(end, eol_len) == eol) {
+      if (std::string(end, eol_len) == eol) 
+      {
         lines.emplace_back(reinterpret_cast<const char*>(local.data() + start_of_line),
                            local.size() - start_of_line);
         start_of_line = local.size();
@@ -756,7 +825,8 @@ std::vector<std::string> Serial::readlines(size_t size, std::string eol)
     }
   }
 
-  if (local.size() == size && start_of_line < local.size()) {
+  if (local.size() == size && start_of_line < local.size()) 
+  {
     lines.emplace_back(reinterpret_cast<const char*>(local.data() + start_of_line),
                        local.size() - start_of_line);
   }
@@ -807,7 +877,8 @@ bool Serial::transaction(const std::string& request,
 
   asyncTransaction(
     request,
-    [wait_state](bool tx_success, const std::string& tx_response) {
+    [wait_state](bool tx_success, const std::string& tx_response) 
+    {
       std::lock_guard<std::mutex> lock(wait_state->mutex);
       wait_state->success = tx_success;
       wait_state->response = tx_response;
@@ -819,18 +890,22 @@ bool Serial::transaction(const std::string& request,
 
   std::unique_lock<std::mutex> lock(wait_state->mutex);
   const uint32_t timeout_ms = getTimeout().read_timeout_constant;
-  if (timeout_ms > 0 && timeout_ms != Timeout::max()) {
+  if (timeout_ms > 0 && timeout_ms != Timeout::max()) 
+  {
     const bool completed = wait_state->cv.wait_for(lock,
-                                                   std::chrono::milliseconds(timeout_ms + 200),
+                                                   std::chrono::milliseconds(timeout_ms),
                                                    [wait_state]() { return wait_state->done; });
-    if (!completed) {
+    if (!completed) 
+    {
       return false;
     }
-  } else {
+  } else 
+  {
     wait_state->cv.wait(lock, [wait_state]() { return wait_state->done; });
   }
 
-  if (wait_state->success) {
+  if (wait_state->success) 
+  {
     response = wait_state->response;
   }
   return wait_state->success;
@@ -841,11 +916,13 @@ void Serial::setPort(const std::string& port)
   std::lock_guard<std::mutex> rlock(m_impl->read_mutex_);
   std::lock_guard<std::mutex> wlock(m_impl->write_mutex_);
   const bool was_open = m_impl->isOpen();
-  if (was_open) {
+  if (was_open) 
+  {
     m_impl->close();
   }
   m_impl->setPort(port);
-  if (was_open) {
+  if (was_open) 
+  {
     m_impl->open();
   }
 }

@@ -33,8 +33,7 @@ namespace device {
     m_response_suffix= "\r\n";
     // initialize to something unrealistic
     m_threshold_ranges = {0xFFFF,0xFFFF};
-    // this timeout is insane...
-    m_timeout_ms = 1000;
+    m_timeout_ms = 100;
 
     // initialize the serial connection
     m_serial.set_port(m_comport);

@@ -56,6 +56,12 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
     throw serial::PortNotOpenedException("initial communication");
   }
 
+  const bool attenuator_online = probe_connection("pc", 2, 50);
+  if (!attenuator_online)
+  {
+    throw serial::IOException(__FILE__, __LINE__, "Attenuator is connected but not responding");
+  }
+
   // make a call to refresh_status and refresh_position to read out current register settings
   refresh_status();
   refresh_position();
@@ -666,6 +672,10 @@ bool Attenuator::write_cmd(const std::string cmd, bool repeat)
 bool Attenuator::read_cmd(std::string &answer, bool repeat)
 {
   std::lock_guard<std::recursive_mutex> lock(io_mutex());
+  if (!is_online())
+  {
+    return false;
+  }
   // wait for the port to be ready
   size_t nbytes = 0;
   // only do this wait if the timeout is not 0

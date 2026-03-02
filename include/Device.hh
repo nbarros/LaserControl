@@ -10,6 +10,7 @@
 #include <string>
 #include <cstdint>
 #include <mutex>
+#include <cstddef>
 #include <asio_serial/serial.hpp>
 
 //#define DEBUG 1
@@ -50,11 +51,17 @@ namespace device
   protected:
     /// local member declaration
     ///
-    bool write_cmd(const std::string cmd);
+    bool write_cmd(const std::string cmd, bool allow_inactive = false);
 
-    bool read_cmd(std::string &answer);
+    bool read_cmd(std::string &answer, bool allow_inactive = false);
 
-    bool exchange_cmd(const std::string cmd, std::string &answer);
+    bool exchange_cmd(const std::string cmd, std::string &answer, bool allow_inactive = false);
+
+    bool probe_connection(const std::string& probe_cmd,
+                std::size_t retries = 2,
+                uint32_t backoff_ms = 50);
+
+    bool is_online();
 
     std::recursive_mutex& io_mutex() { return m_io_mutex; }
 
@@ -70,6 +77,8 @@ namespace device
     uint32_t m_timeout_ms;
     serial::Serial m_serial;
     std::recursive_mutex m_io_mutex;
+    bool m_is_online;
+    uint32_t m_consecutive_failures;
 
 
   private:

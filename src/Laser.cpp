@@ -79,6 +79,12 @@ Laser::Laser (const char* port, const uint32_t baud_rate)
 #endif
 
   }
+
+  const bool laser_online = probe_connection("SE", 2, 50);
+  if (!laser_online)
+  {
+    throw serial::IOException(__FILE__, __LINE__, "Laser is connected but not responding");
+  }
 }
 
 Laser::~Laser ()
@@ -472,6 +478,10 @@ bool Laser::write_cmd(const std::string cmd)
 bool Laser::read_cmd(std::string &answer)
 {
   std::lock_guard<std::recursive_mutex> lock(io_mutex());
+  if (!is_online())
+  {
+    return false;
+  }
   // wait for the port to be ready
   size_t nbytes = 0;
   // only do this wait if the timeout is not 0

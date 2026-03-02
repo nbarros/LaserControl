@@ -63,6 +63,12 @@ namespace device {
 
     }
 
+    const bool powermeter_online = probe_connection("II", 2, 50);
+    if (!powermeter_online)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "PowerMeter is connected but not responding");
+    }
+
     // init measurement units map
     m_measurement_units.insert({'c',"Foot-Candles"});
     m_measurement_units.insert({'d',"dBm"});

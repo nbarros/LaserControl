@@ -18,6 +18,10 @@
 namespace device
 {
 
+  namespace {
+    const uint32_t k_offline_failure_threshold = 3;
+  }
+
   bool Device::is_open()
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
@@ -30,6 +34,7 @@ namespace device
     if (m_serial.is_open()) {
       m_serial.close();
     }
+    m_is_online = false;
   }
 
   Device::Device (const char* port, const uint32_t baud_rate)
@@ -37,7 +42,9 @@ namespace device
         m_baud(baud_rate),
         m_com_pre(""),
         m_request_suffix("\r"),
-        m_timeout_ms(500)
+      m_timeout_ms(500),
+      m_is_online(false),
+      m_consecutive_failures(0)
   {
 
   }
@@ -47,9 +54,13 @@ namespace device
     close();
   }
 
-  bool Device::write_cmd(const std::string cmd)
+  bool Device::write_cmd(const std::string cmd, bool allow_inactive)
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+    if (!m_is_online && !allow_inactive)
+    {
+      return false;
+    }
     if (!m_serial.is_open())
     {
       m_serial.open();
@@ -67,11 +78,18 @@ namespace device
     size_t written_bytes = m_serial.write(msg);
     if (written_bytes != msg.size())
     {
+      m_consecutive_failures++;
+      if (m_consecutive_failures >= k_offline_failure_threshold)
+      {
+        m_is_online = false;
+      }
       return false;
     }
   #ifdef DEBUG
     std::cout << "Device::write_cmd : Wrote "<< written_bytes << " bytes" << std::endl;
   #endif
+    m_consecutive_failures = 0;
+    m_is_online = true;
     return true;
     }
 
@@ -89,9 +107,13 @@ namespace device
 
   }
 
-  bool Device::read_cmd(std::string &answer)
+  bool Device::read_cmd(std::string &answer, bool allow_inactive)
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+    if (!m_is_online && !allow_inactive)
+    {
+      return false;
+    }
 
     // m_serial.waitReadable()
     size_t nbytes = m_serial.readline(answer, 0xFFFF, m_response_suffix);
@@ -103,10 +125,20 @@ namespace device
   // if we got no answer
   if (nbytes == 0) 
   {
+    m_consecutive_failures++;
+    if (m_consecutive_failures >= k_offline_failure_threshold)
+    {
+      m_is_online = false;
+    }
     return false;
   }
   else if (nbytes < m_response_suffix.size())
   {
+    m_consecutive_failures++;
+    if (m_consecutive_failures >= k_offline_failure_threshold)
+    {
+      m_is_online = false;
+    }
     return false;
   }
   // careful with the trim
@@ -125,12 +157,18 @@ namespace device
       // trim the suffix chars
       answer.erase(answer.size() - m_response_suffix.size());
     }
+    m_consecutive_failures = 0;
+    m_is_online = true;
     return true;
   }
 
-  bool Device::exchange_cmd(const std::string cmd, std::string &answer)
+  bool Device::exchange_cmd(const std::string cmd, std::string &answer, bool allow_inactive)
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+    if (!m_is_online && !allow_inactive)
+    {
+      return false;
+    }
     if (!m_serial.is_open())
     {
       m_serial.open();
@@ -148,6 +186,11 @@ namespace device
     const bool success = m_serial.transaction(msg, raw_answer, m_response_suffix, 0xFFFF);
     if (!success)
     {
+      m_consecutive_failures++;
+      if (m_consecutive_failures >= k_offline_failure_threshold)
+      {
+        m_is_online = false;
+      }
       return false;
     }
 
@@ -164,6 +207,8 @@ namespace device
 #ifdef DEBUG
     std::cout << "Device::exchange_cmd : Received answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
+  m_consecutive_failures = 0;
+  m_is_online = true;
     return true;
   }
 
@@ -190,6 +235,45 @@ namespace device
       m_serial.close();
     }
     m_serial.open();
+    m_is_online = false;
+    m_consecutive_failures = 0;
+  }
+
+  bool Device::probe_connection(const std::string& probe_cmd,
+                                std::size_t retries,
+                                uint32_t backoff_ms)
+  {
+    std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+
+    std::string response;
+    for (std::size_t attempt = 0; attempt <= retries; ++attempt)
+    {
+      const bool success = exchange_cmd(probe_cmd, response, true);
+      if (success && !response.empty())
+      {
+        m_is_online = true;
+        m_consecutive_failures = 0;
+        return true;
+      }
+
+      if (attempt < retries)
+      {
+        reset_connection();
+        if (backoff_ms > 0)
+        {
+          std::this_thread::sleep_for(std::chrono::milliseconds(backoff_ms * (attempt + 1)));
+        }
+      }
+    }
+
+    m_is_online = false;
+    return false;
+  }
+
+  bool Device::is_online()
+  {
+    std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+    return m_is_online;
   }
 
 } /* namespace device */

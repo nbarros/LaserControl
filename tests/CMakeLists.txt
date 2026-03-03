@@ -1,0 +1,19 @@
+add_executable(test_utilities test_utilities.cpp)
+
+target_compile_features(test_utilities PUBLIC cxx_std_11)
+set_target_properties(test_utilities PROPERTIES CXX_STANDARD_REQUIRED ON)
+set_target_properties(test_utilities PROPERTIES CXX_EXTENSIONS OFF)
+
+target_link_libraries(test_utilities PRIVATE LaserControl)
+
+add_test(NAME LaserControl.Utilities COMMAND test_utilities)
+
+add_executable(test_device_protocols test_device_protocols.cpp)
+
+target_compile_features(test_device_protocols PUBLIC cxx_std_11)
+set_target_properties(test_device_protocols PROPERTIES CXX_STANDARD_REQUIRED ON)
+set_target_properties(test_device_protocols PROPERTIES CXX_EXTENSIONS OFF)
+
+target_link_libraries(test_device_protocols PRIVATE LaserControl util)
+
+add_test(NAME LaserControl.DeviceProtocols COMMAND test_device_protocols)

@@ -5,6 +5,8 @@ project(
   VERSION 1.1
   LANGUAGES CXX)
 
+include(CTest)
+
 find_package(Boost REQUIRED COMPONENTS system)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
@@ -105,4 +107,8 @@ add_executable(test_pm EXCLUDE_FROM_ALL examples/test_powermeter.cc)
 target_link_libraries(test_pm PUBLIC LaserControl)
 
 add_subdirectory(apps)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
 

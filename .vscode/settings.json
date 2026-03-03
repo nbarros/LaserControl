@@ -1,0 +1,5 @@
+{
+  "editor.defaultFormatter": "ms-vscode.cpptools-extension-pack",
+  "editor.tabSize": 2,
+  "editor.formatOnPaste": true
+}

@@ -1,0 +1,54 @@
+{
+  "laser": {
+    "port": "auto",
+    "serial_number": "A9JCTU8M",
+    "baud": 9600,
+    "nominal": {
+      "prescale": 0,
+      "pump_voltage_kv": 1.19,
+      "qswitch_us": 270,
+      "repetition_rate_hz": 10.0,
+      "open_shutter": true
+    }
+  },
+  "power_meter": {
+    "port": "auto",
+    "serial_number": "A9LMFBRZ",
+    "baud": 9600,
+    "nominal": {
+      "wavelength_nm": 266,
+      "range": 4,
+      "energy_threshold": 300
+    }
+  },
+  "attenuator": {
+    "port": "auto",
+    "serial_number": "6ATT1789D",
+    "baud": 38400,
+    "nominal": {
+      "acceleration": 0,
+      "deceleration": 0,
+      "idle_current": 36,
+      "moving_current": 114,
+      "max_speed": 59000,
+      "resolution": 2
+    }
+  },
+  "scan": {
+    "start_position": -10000,
+    "max_position": 10000,
+    "step_size": 200,
+    "shots_per_position": 50,
+    "max_read_tries": 2000,
+    "settle_ms": 200,
+    "sample_period_ms": 100
+  },
+  "fit": {
+    "offset_min": 3000.0,
+    "offset_max": 5000.0,
+    "offset_step": 1.0
+  },
+  "output": {
+    "results_csv": "attenuation_calibration_p3.csv"
+  }
+}

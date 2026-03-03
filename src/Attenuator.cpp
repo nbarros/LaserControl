@@ -39,6 +39,7 @@ Attenuator::Attenuator (const char* port, const uint32_t baud_rate)
   // termination of the writes. Had to overload the functions
 
   // open the serial port with a 1s timeout by default
+  m_response_suffix = "\n\r";
   m_serial.set_baudrate(m_baud);
   m_serial.set_port(m_comport);
   m_serial.set_bytesize(serial::eightbits);

@@ -12,3 +12,9 @@ set_target_properties(serial_manager PROPERTIES CXX_EXTENSIONS OFF)
 #target_include_directories(test_lbls PRIVATE ${PROJECT_SOURCE_DIR}/common)
 target_link_libraries(serial_manager LaserControl spdlog readline nlohmann_json::nlohmann_json)
 
+add_executable(calibrate_attenuator calibrate_attenuator.cpp)
+target_compile_features(calibrate_attenuator PUBLIC cxx_std_11)
+set_target_properties(calibrate_attenuator PROPERTIES CXX_STANDARD_REQUIRED ON)
+set_target_properties(calibrate_attenuator PROPERTIES CXX_EXTENSIONS OFF)
+target_link_libraries(calibrate_attenuator LaserControl nlohmann_json::nlohmann_json)
+

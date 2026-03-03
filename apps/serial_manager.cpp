@@ -334,7 +334,7 @@ int query_power_meter_settings()
         "Power capable  : {3}\n"
         "Energy capable  : {4}\n"
         "Frequency capable  : {5}\n"
-        , tp,sn,pw,en,fq);
+        , tp,sn,name,pw,en,fq);
     spdlog::debug("Querying the instrument:");
     iols.power_meter->inst_info(tp, sn, name);
     spdlog::debug("INSTRUMENT INFO :\n"

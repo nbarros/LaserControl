@@ -61,6 +61,9 @@ namespace device
                 std::size_t retries = 2,
                 uint32_t backoff_ms = 50);
 
+    bool try_recover_connection(std::size_t retries = 1,
+                  uint32_t backoff_ms = 50);
+
     bool is_online();
 
     std::recursive_mutex& io_mutex() { return m_io_mutex; }
@@ -79,6 +82,8 @@ namespace device
     std::recursive_mutex m_io_mutex;
     bool m_is_online;
     uint32_t m_consecutive_failures;
+    bool m_user_requested_close;
+    std::string m_probe_cmd;
 
 
   private:

@@ -31,6 +31,7 @@ namespace device
   void Device::close()
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+    m_user_requested_close = true;
     if (m_serial.is_open()) {
       m_serial.close();
     }
@@ -44,7 +45,9 @@ namespace device
         m_request_suffix("\r"),
       m_timeout_ms(100),
       m_is_online(false),
-      m_consecutive_failures(0)
+      m_consecutive_failures(0),
+      m_user_requested_close(false),
+      m_probe_cmd("")
   {
 
   }
@@ -59,7 +62,10 @@ namespace device
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
     if (!m_is_online && !allow_inactive)
     {
-      return false;
+      if (!try_recover_connection())
+      {
+        return false;
+      }
     }
     if (!m_serial.is_open())
     {
@@ -90,6 +96,7 @@ namespace device
   #endif
     m_consecutive_failures = 0;
     m_is_online = true;
+    m_user_requested_close = false;
     return true;
     }
 
@@ -113,7 +120,10 @@ namespace device
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
     if (!m_is_online && !allow_inactive)
     {
-      return false;
+      if (!try_recover_connection())
+      {
+        return false;
+      }
     }
 
     // m_serial.waitReadable()
@@ -160,6 +170,7 @@ namespace device
     }
     m_consecutive_failures = 0;
     m_is_online = true;
+    m_user_requested_close = false;
     return true;
   }
 
@@ -168,7 +179,10 @@ namespace device
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
     if (!m_is_online && !allow_inactive)
     {
-      return false;
+      if (!try_recover_connection())
+      {
+        return false;
+      }
     }
     if (!m_serial.is_open())
     {
@@ -210,6 +224,7 @@ namespace device
 #endif
   m_consecutive_failures = 0;
   m_is_online = true;
+  m_user_requested_close = false;
     return true;
   }
 
@@ -238,6 +253,7 @@ namespace device
     m_serial.open();
     m_is_online = false;
     m_consecutive_failures = 0;
+    m_user_requested_close = false;
   }
 
   bool Device::probe_connection(const std::string& probe_cmd,
@@ -245,6 +261,11 @@ namespace device
                                 uint32_t backoff_ms)
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+
+    if (!probe_cmd.empty())
+    {
+      m_probe_cmd = probe_cmd;
+    }
 
     std::string response;
     for (std::size_t attempt = 0; attempt <= retries; ++attempt)
@@ -254,6 +275,7 @@ namespace device
       {
         m_is_online = true;
         m_consecutive_failures = 0;
+        m_user_requested_close = false;
         return true;
       }
 
@@ -269,6 +291,29 @@ namespace device
 
     m_is_online = false;
     return false;
+  }
+
+  bool Device::try_recover_connection(std::size_t retries, uint32_t backoff_ms)
+  {
+    std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+    if (m_is_online)
+    {
+      return true;
+    }
+
+    // Do not reconnect after an explicit user-requested close().
+    if (m_user_requested_close)
+    {
+      return false;
+    }
+
+    // A probe command is required to confirm the device is truly responsive.
+    if (m_probe_cmd.empty())
+    {
+      return false;
+    }
+
+    return probe_connection(m_probe_cmd, retries, backoff_ms);
   }
 
   bool Device::is_online()

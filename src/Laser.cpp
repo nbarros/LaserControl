@@ -252,7 +252,7 @@ void Laser::get_shot_count(uint32_t &count)
    read_lines(lines);
 
 #ifdef DEBUG
-  std::cout << "Laser::security : Received [" << lines.size() << "] answer tokens" << std::endl;
+  std::cout << "Laser::get_shot_count : Received [" << lines.size() << "] answer tokens" << std::endl;
 #endif
   if (lines.size() == 0)
   {
@@ -263,7 +263,9 @@ void Laser::get_shot_count(uint32_t &count)
       throw serial::IOException(__FILE__,__LINE__,"Failed to read shot count");
     } 
   }
-  else if (lines.size() == 1)
+
+  // Extract response from appropriate line based on count
+  if (lines.size() == 1)
   {
     resp = lines.at(0);
     if (resp.size() > 0)
@@ -271,7 +273,7 @@ void Laser::get_shot_count(uint32_t &count)
       resp.erase(resp.size()-1);
     }
   }
-  else
+  else if (lines.size() >= 2)
   {
     // the second is the answer
     resp = lines.at(1);
@@ -280,16 +282,23 @@ void Laser::get_shot_count(uint32_t &count)
       resp.erase(resp.size()-1);
     }
   }
+  else
+  {
+    util::throw_parse_error("Laser::get_shot_count", 
+      std::string("Unexpected response format: received ") + std::to_string(lines.size()) + " lines");
+  }
 
-   //   std::string resp = m_serial.readline(0xFFFF,m_com_sfx);
-   //resp.erase(resp.size()-1);
-//#ifdef DEBUG
-//   std::cout << "Laser::get_shot_count : Received answer [" << util::escape(resp.c_str()) << "]" << std::endl;
-//#endif
-//   resp = resp.substr(cmd.size()+1); // drop the echoed command
 #ifdef DEBUG
    std::cout << "Laser::get_shot_count : Trimmed [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
+
+   // Validate response is not empty
+   if (resp.empty())
+   {
+     util::throw_parse_error("Laser::get_shot_count", 
+       std::string("Empty response to SC command"));
+   }
+
    // according to the python script, the answer we want is in the bytes [3:11]
    try
    {

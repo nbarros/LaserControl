@@ -389,6 +389,9 @@ void Attenuator::refresh_status()
 
   try
   {
+    // Validate token count before accessing
+    util::validate_token_count(tokens, 24, "Attenuator::refresh_status", resp);
+    
     const enum OpMode op_mode = static_cast<enum OpMode>(std::stol(tokens.at(0)));
     const enum MotorState motor_state = static_cast<enum MotorState>(std::stol(tokens.at(1)));
     const uint16_t acceleration = std::stoul(tokens.at(2)) & 0xFF;
@@ -476,6 +479,9 @@ void Attenuator::get_position(int32_t &position, uint16_t &status, bool wait)
 
   try
   {
+    // Validate token count before accessing
+    util::validate_token_count(tokens, 2, "Attenuator::get_position", resp);
+    
     if (tokens.at(0).size() != 1)
     {
       std::ostringstream msg;

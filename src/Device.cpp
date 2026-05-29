@@ -152,12 +152,12 @@ namespace device
     }
     return false;
   }
-  // careful with the trim
-  // if for some reason the answer is not valid, we can hit an exception here
+  // carefully validate and remove the response suffix
+  // verify that the answer actually ends with the expected suffix
   if (answer.size() < m_response_suffix.size())
   {
 #ifdef DEBUG
-      std::cout << "Answer has less characters than expected [ (got) " << answer.size() << " vs " << m_response_suffix.size() << "]" << std::endl;
+      std::cout << "Answer has less characters than suffix [ (got) " << answer.size() << " vs " << m_response_suffix.size() << "]" << std::endl;
 #endif
       // in this case just trim special chars
       std::string ta = util::rtrim(answer);
@@ -165,6 +165,16 @@ namespace device
     }
     else
     {
+      // verify that the actual suffix matches expected suffix
+      const std::string actual_suffix = answer.substr(answer.size() - m_response_suffix.size());
+      if (actual_suffix != m_response_suffix)
+      {
+#ifdef DEBUG
+        std::cout << "Device::read_cmd : WARNING: Actual suffix [" << util::escape(actual_suffix.c_str()) 
+                  << "] does not match expected [" << util::escape(m_response_suffix.c_str()) << "]" << std::endl;
+#endif
+        // Still remove it anyway, but log the mismatch
+      }
       // trim the suffix chars
       answer.erase(answer.size() - m_response_suffix.size());
     }
@@ -212,6 +222,15 @@ namespace device
     answer = raw_answer;
     if (answer.size() >= m_response_suffix.size())
     {
+      // Verify the actual suffix matches expected before removing
+      const std::string actual_suffix = answer.substr(answer.size() - m_response_suffix.size());
+      if (actual_suffix != m_response_suffix)
+      {
+#ifdef DEBUG
+        std::cout << "Device::exchange_cmd : WARNING: Actual suffix [" << util::escape(actual_suffix.c_str()) 
+                  << "] does not match expected [" << util::escape(m_response_suffix.c_str()) << "]" << std::endl;
+#endif
+      }
       answer.erase(answer.size() - m_response_suffix.size());
     }
     else

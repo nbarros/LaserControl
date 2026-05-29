@@ -173,11 +173,25 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::get_average_flag : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    // strip the leading * and the trailing \n\r
+    // Validate response format: expect "*X" where X is 0 or 1
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::get_average_flag", 
+        std::string("Empty response to AF command"));
+    }
+
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::get_average_flag", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+
+    // Extract the value (should be just after the '*')
     try
     {
-      const std::string parsed = resp.substr(1,resp.size() - 3);
-      flag = (std::stol(parsed)==0)?false:true;
+      // Safe to access substr(1) because we know resp has at least 1 char (the '*')
+      const std::string value_str = util::safe_substr(resp, 1, 1, "PowerMeter::get_average_flag");
+      flag = (std::stol(value_str) != 0) ? true : false;
     }
     catch (const std::exception& ex)
     {
@@ -212,11 +226,25 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::get_average_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    // the third byte is the setting that is still in place
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::average_query", 
+        std::string("Empty response to AQ command"));
+    }
+
+    // Validate response format
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::average_query", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+
+    // The third byte is the setting that is still in place
     uint16_t parsed_answer = 0;
     try
     {
-      parsed_answer = std::stoul(resp.substr(2,1)) & 0xFFFF;
+      parsed_answer = std::stoul(util::safe_substr(resp, 2, 1, "PowerMeter::average_query")) & 0xFFFF;
     }
     catch (const std::exception& ex)
     {
@@ -230,13 +258,13 @@ namespace device {
 #ifdef DEBUG
       std::cout << "PowerMeter::set_average_query : got answer [" << resp << "]" << std::endl;
 #endif
-      // the first option is going to be NONE.search for it
+      // The first option is going to be NONE. Search for it.
       size_t p = resp.find("NONE");
       if (p == std::string::npos)
       {
         util::throw_parse_error("PowerMeter::average_query", "NONE token not found");
       }
-      std::string range = resp.substr(p);
+      std::string range = util::safe_substr(resp, p, resp.size() - p, "PowerMeter::average_query");
       std::vector<std::string> tokens;
       util::tokenize_string(range, tokens, " ");
 
@@ -275,9 +303,17 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::get_all_ranges : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    // strip the first two bytes, as it indicates whether the command failed or not and in this case it does not matter
-    resp = resp.substr(1);
-    // NOTE:There is no space after the first token in this command
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::get_all_ranges", 
+        std::string("Empty response to AR command"));
+    }
+
+    // strip the first byte (success indicator)
+    resp = util::safe_substr(resp, 1, resp.size() - 1, "PowerMeter::get_all_ranges");
+    
+    // NOTE: There is no space after the first token in this command
     // now we want to tokenize the returned string and set the map
     std::vector<std::string> tokens;
     resp = util::trim(resp); // trim leading and trailing whitespaces
@@ -294,7 +330,10 @@ namespace device {
     int16_t parsed_setting = 0;
     try
     {
-      // however the first token is the current setting
+      // Validate we have at least one token
+      util::validate_token_count(tokens, 1, "PowerMeter::get_all_ranges", resp);
+      
+      // The first token is the current setting
       parsed_setting = std::stol(tokens.at(0)) & 0xFFFF;
     }
     catch (const std::exception& ex)
@@ -374,8 +413,15 @@ namespace device {
     std::cout << "PowerMeter::get_all_wavelengths : got answer [" << util::escape(answer.c_str()) << "]" << std::endl;
 #endif
 
-    // just remove the first byte and return the rest
-    answer = answer.substr(1);
+    // Validate response is not empty and remove the success marker
+    if (answer.empty())
+    {
+      util::throw_parse_error("PowerMeter::get_all_wavelengths", 
+        std::string("Empty response to AW command"));
+    }
+
+    // Remove the first byte (success marker) and return the rest
+    answer = util::safe_substr(answer, 1, answer.size() - 1, "PowerMeter::get_all_wavelengths");
   }
 
 
@@ -397,13 +443,21 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::bc20_sensor_mode : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    // strip the first byte, as it indicates whether the command failed or not
-    //char s= resp.at(0);
-    //success = (s == '*')?true:false;
-    // the third byte is the setting that is still in place
+    // Validate response format: expect "*Xs" or similar with at least 3 chars
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::bc20_sensor_mode", 
+        std::string("Empty response to BQ command"));
+    }
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::bc20_sensor_mode", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+    // The third byte is the setting that is still in place
     try
     {
-      answer = static_cast<BC20>(std::stol(resp.substr(2,1)));
+      answer = static_cast<BC20>(std::stol(util::safe_substr(resp, 2, 1, "PowerMeter::bc20_sensor_mode")));
     }
     catch (const std::exception& ex)
     {
@@ -430,25 +484,32 @@ namespace device {
     std::cout << "PowerMeter::diffuser_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
+    // Validate response is not empty first
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::diffuser_query", 
+        std::string("Empty response to DQ command"));
+    }
 
-    // Here we need to be a bit smarter, since the device is N/A the return code is the same
-    // as OUT mode on a valid device...how to not design drivers
-    // so, let's use that as the primary separator
+    // Check if device reports N/A (not applicable)
+    // Note: the return code is the same as OUT mode on a valid device
     if (resp.find("N/A") != resp.npos)
     {
-      // it does not matter whether it succeeded or failed
       // the setting has no meaning in this device
       answer = dNA;
     }
     else
     {
-      // actually we do not care whether it succeeded or failed
-      // all we care is to get the currently registered setting
-      // and since we already ruled out that it was NA, then
-      // we can simply do a cast
+      // Get the currently registered setting
+      // Validate response format before parsing
+      if (resp.at(0) != '*')
+      {
+        util::throw_parse_error("PowerMeter::diffuser_query", 
+          std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+      }
       try
       {
-        answer = static_cast<DiffuserSetting>(std::stol(resp.substr(2,1)));
+        answer = static_cast<DiffuserSetting>(std::stol(util::safe_substr(resp, 2, 1, "PowerMeter::diffuser_query")));
       }
       catch (const std::exception& ex)
       {
@@ -475,10 +536,16 @@ namespace device {
     std::cout << "PowerMeter::exposure_energy : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
+    // Validate response is not empty and starts with success marker
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::exposure_energy", 
+        std::string("Empty response to EE command"));
+    }
+
     if (resp.at(0) == '*')
     {
       // tokenize the response string
-      // now we want to tokenize the returned string and set the map
       std::vector<std::string> tokens;
       util::tokenize_string(resp, tokens, " ");
 #ifdef DEBUG
@@ -486,6 +553,9 @@ namespace device {
 #endif
       try
       {
+        // Validate we have enough tokens before accessing
+        util::validate_token_count(tokens, 4, "PowerMeter::exposure_energy", resp);
+        
         const double parsed_energy = std::stod(tokens.at(1));
         const uint32_t parsed_pulses = std::stoul(tokens.at(2));
         const uint32_t parsed_et = std::stoul(tokens.at(3));
@@ -521,15 +591,26 @@ namespace device {
       throw serial::IOException(__FILE__, __LINE__, "Failed to query energy flag");
     }
 
-    //  write_cmd(cmd);
-    //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_flag : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    if (resp.size() < 2) new_val = false;
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::energy_flag", 
+        std::string("Empty response to EF command"));
+    }
+
+    // Validate response starts with success marker
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::energy_flag", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+
     try
     {
-      new_val = (std::stol(resp.substr(1)) == 0)?false:true;
+      new_val = (std::stol(util::safe_substr(resp, 1, resp.size() - 1, "PowerMeter::energy_flag")) == 0)?false:true;
     }
     catch (const std::exception& ex)
     {
@@ -553,14 +634,26 @@ namespace device {
       throw serial::IOException(__FILE__, __LINE__, "Failed to query energy ready");
     }
 
-    //  write_cmd(cmd);
-    //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_ready : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::energy_ready", 
+        std::string("Empty response to ER command"));
+    }
+
+    // Validate response starts with success marker
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::energy_ready", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+
     try
     {
-      new_val = (std::stol(resp.substr(1)) == 0)?false:true;
+      new_val = (std::stol(util::safe_substr(resp, 1, resp.size() - 1, "PowerMeter::energy_ready")) == 0)?false:true;
     }
     catch (const std::exception& ex)
     {
@@ -584,15 +677,27 @@ namespace device {
       throw serial::IOException(__FILE__, __LINE__, "Failed to query energy threshold");
     }
 
-    //  write_cmd(cmd);
-    //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
     std::cout << "PowerMeter::energy_threshold : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::energy_threshold", 
+        std::string("Empty response to ET command"));
+    }
+
+    // Validate response starts with success marker
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::energy_threshold", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+
     try
     {
-      const uint32_t parsed_answer = std::stoul(resp.substr(1,1));
+      const uint32_t parsed_answer = std::stoul(util::safe_substr(resp, 1, 1, "PowerMeter::energy_threshold"));
       answer = parsed_answer;
       m_e_threshold = parsed_answer;
     }
@@ -614,11 +719,17 @@ namespace device {
     {
       throw serial::IOException(__FILE__, __LINE__, "Failed to force energy");
     }
-    //  std::string resp = m_serial.readline(0xFFFF, "\r\n");
 #ifdef DEBUG
     std::cout << "PowerMeter::force_energy : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    success = (resp.at(0) == '?')?false:true;
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::force_energy", 
+        std::string("Empty response to FE command"));
+    }
+    // '?' indicates failure, '*' indicates success
+    success = (resp.at(0) != '?');
   }
 
   void PowerMeter::force_power(bool &success)
@@ -628,11 +739,22 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::force_power : Sending query [" << cmd << "]" << std::endl;
 #endif
-    send_cmd(cmd,resp);
+    bool st = send_cmd(cmd, resp);
+    if (!st)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "Failed to force power");
+    }
 #ifdef DEBUG
     std::cout << "PowerMeter::force_power : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    success = (resp.at(0) == '?')?false:true;
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::force_power", 
+        std::string("Empty response to FP command"));
+    }
+    // '?' indicates failure, '*' indicates success
+    success = (resp.at(0) != '?');
   }
 
   void PowerMeter::filter_query(const DiffuserSetting s, DiffuserSetting &answer)
@@ -653,25 +775,31 @@ namespace device {
     std::cout << "PowerMeter::filter_query : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
+    // Validate response is not empty first
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::filter_query", 
+        std::string("Empty response to FQ command"));
+    }
 
-    // Here we need to be a bit smarter, since the device is N/A the return code is the same
-    // as OUT mode on a valid device...how to not design drivers
-    // so, let's use that as the primary separator
+    // Check if device reports N/A (not applicable)
     if (resp.find("N/A") != resp.npos)
     {
-      // it does not matter whether it succeeded or failed
       // the setting has no meaning in this device
       answer = dNA;
     }
     else
     {
-      // actually we do not care whether it succeeded or failed
-      // all we care is to get the currently registered setting
-      // and since we already ruled out that it was NA, then
-      // we can simply do a cast
+      // Get the currently registered setting
+      // Validate response format before parsing
+      if (resp.at(0) != '*')
+      {
+        util::throw_parse_error("PowerMeter::filter_query", 
+          std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+      }
       try
       {
-        answer = static_cast<DiffuserSetting>(std::stol(resp.substr(2,1)));
+        answer = static_cast<DiffuserSetting>(std::stol(util::safe_substr(resp, 2, 1, "PowerMeter::filter_query")));
       }
       catch (const std::exception& ex)
       {
@@ -695,7 +823,14 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::force_exposure : got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    success = (resp.at(0) == '?')?false:true;
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::force_exposure", 
+        std::string("Empty response to FX command"));
+    }
+    // '?' indicates failure, '*' indicates success
+    success = (resp.at(0) != '?');
   }
 
 
@@ -773,7 +908,21 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::head_type : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
-    type = resp.substr(1);
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::head_type", 
+        std::string("Empty response to HT command"));
+    }
+
+    // Validate response starts with success marker
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::head_type", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+
+    type = util::safe_substr(resp, 1, resp.size() - 1, "PowerMeter::head_type");
   }
 
   void PowerMeter::inst_config(bool &success)
@@ -788,7 +937,15 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::inst_config : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    success = (rr.at(0) == '?')?false:true;
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::inst_config", 
+        std::string("Empty response to IC command"));
+    }
+
+    // '?' indicates failure, '*' indicates success
+    success = (rr.at(0) != '?');
   }
 
   void PowerMeter::inst_info(std::string &id, std::string &sn, std::string &name)
@@ -800,16 +957,27 @@ namespace device {
     {
       throw serial::IOException(__FILE__, __LINE__, "Failed to query instrument info");
     }
+
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::inst_info", 
+        std::string("Empty response to II command"));
+    }
+
     rr = util::trim(rr);
 #ifdef DEBUG
     std::cout << "PowerMeter::inst_info : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // tokenize it and get rid of first entry
+    // tokenize it and get rid of first entry (success marker)
     std::vector<std::string> tokens;
     util::tokenize_string(rr, tokens, " ");
-    // drop the first token
+    
     try
     {
+      // Validate token count (should be at least 4: marker + id + sn + name)
+      util::validate_token_count(tokens, 4, "PowerMeter::inst_info", rr);
+      
       tokens.erase(tokens.begin());
       const std::string parsed_id = tokens.at(0);
       const std::string parsed_sn = tokens.at(1);
@@ -851,9 +1019,23 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::mains_frequency : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::mains_frequency", 
+        std::string("Empty response to MA command"));
+    }
+
+    // Validate response format
+    if (resp.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::mains_frequency", 
+        std::string("Expected '*' prefix, got: [") + util::escape(resp) + "]");
+    }
+
     try
     {
-      answer = std::stoul(resp.substr(2,1)) & 0xFFFF;
+      answer = std::stoul(util::safe_substr(resp, 2, 1, "PowerMeter::mains_frequency")) & 0xFFFF;
     }
     catch (const std::exception& ex)
     {
@@ -875,9 +1057,23 @@ namespace device {
     std::cout << "PowerMeter::max_freq : Got answer [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
 
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::max_freq", 
+        std::string("Empty response to MF command"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::max_freq", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
     try
     {
-      value = std::stoul(rr.substr(1));
+      value = std::stoul(util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::max_freq"));
     }
     catch (const std::exception& ex)
     {
@@ -910,14 +1106,21 @@ namespace device {
     std::cout << "PowerMeter::measurement_mode : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
 
-    // this command is silly. The answer varies wildly depending on the setting
+    // Validate response is not empty
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::measurement_mode", 
+        std::string("Empty response to MM command"));
+    }
+
+    // This command's answer varies depending on the setting
     if (q == 0)
     {
-      // we were querying current setting. All we care about is
-      // the second byte
+      // We are querying the current setting
+      // Response format: "*<digit>" where digit is the mode
       try
       {
-        a = std::stoi(resp.substr(1));
+        a = std::stoi(util::safe_substr(resp, 1, resp.size() - 1, "PowerMeter::measurement_mode"));
       }
       catch (const std::exception& ex)
       {
@@ -925,19 +1128,28 @@ namespace device {
       }
     }
     else {
-      // we are trying to set a new setting
-      // the answer is different depending whether it was successful or not
+      // We are trying to set a new setting
+      // The answer format differs based on whether it was successful
       if (resp.at(0) == '*')
       {
-        // success.
+        // Success - command was applied
         a = q;
       } else
       {
-        // failed
-        // then query what is the current setting
-        // because the failed command does not return the current setting...
-        // why?!?!?! Don't know ¯\_(ツ)_/¯
-        measurement_mode(0,a);
+        // Failed - command was not applied
+        // Query the current setting instead
+        // Note: be careful with recursion to avoid infinite loops
+        try
+        {
+          measurement_mode(0, a);
+        }
+        catch (const std::exception&)
+        {
+          // If query also fails, re-throw original error
+          util::throw_parse_error("PowerMeter::measurement_mode", 
+            std::string("Failed to set or query measurement mode. Response: [") + 
+            util::escape(resp) + "]");
+        }
       }
     }
   }
@@ -959,13 +1171,26 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::pulse_length : Got answer [" << util::escape(resp.c_str()) << "]" << std::endl;
 #endif
+
+    // Validate response
+    if (resp.empty())
+    {
+      util::throw_parse_error("PowerMeter::pulse_length", 
+        std::string("Empty response to PL command"));
+    }
+
     if (value == 0)
     {
-      // we were querying current setting. All we care about is
-      // the second byte
+      // we were querying current setting. Validate success marker and extract current setting
+      if (resp.at(0) != '*')
+      {
+        util::throw_parse_error("PowerMeter::pulse_length", 
+          std::string("Expected '*' prefix for query, got: [") + util::escape(resp) + "]");
+      }
+
       try
       {
-        answer = std::stoul(resp.substr(1,1));
+        answer = std::stoul(util::safe_substr(resp, 1, 1, "PowerMeter::pulse_length"));
       }
       catch (const std::exception& ex)
       {
@@ -975,7 +1200,7 @@ namespace device {
       // if the map is not filled, then fill it
       if (m_pulse_lengths.size() == 0)
       {
-        resp= resp.substr(2);
+        resp = util::safe_substr(resp, 2, resp.size() - 2, "PowerMeter::pulse_length");
         // next trim leading and trailing spaces
         resp = util::trim(resp);
 
@@ -1009,10 +1234,10 @@ namespace device {
         answer = value;
       } else
       {
-        // failed
+        // failed - get current setting
         try
         {
-          answer = std::stoul(resp.substr(1,1)) & 0xFFFF;
+          answer = std::stoul(util::safe_substr(resp, 1, 1, "PowerMeter::pulse_length")) & 0xFFFF;
         }
         catch (const std::exception& ex)
         {
@@ -1054,10 +1279,24 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::get_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // drop the first byte
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::get_range", 
+        std::string("Empty response to RN command"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::get_range", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
+    // drop the success marker and parse the value
     try
     {
-      value = std::stoi(rr.substr(1));
+      value = std::stoi(util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::get_range"));
     }
     catch (const std::exception& ex)
     {
@@ -1086,10 +1325,24 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_energy : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // drop the first byte
+    // Validate response is not empty
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::send_energy", 
+        std::string("Empty response to SE command"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::send_energy", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
+    // Extract numeric value after the success marker
     try
     {
-      value = std::stod(rr.substr(1));
+      value = std::stod(util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::send_energy"));
     }
     catch (const std::exception& ex)
     {
@@ -1122,23 +1375,36 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_frequency : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // typical answer: [*10\r\n]
-    // typical failure: [?FREQ TOO LOW\r\n]
+    // Typical answer: [*10] or failure: [?FREQ TOO LOW]
+    // Validate response is not empty
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::send_frequency", 
+        std::string("Empty response to SF command"));
+    }
+
     if (rr.at(0) == '?')
     {
+      // Command failed - return 0.0
       value = 0.0;
     }
-    else
+    else if (rr.at(0) == '*')
     {
-      // drop the first byte
+      // Success - extract the numeric value
       try
       {
-        value = std::stod(rr.substr(1));
+        value = std::stod(util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::send_frequency"));
       }
       catch (const std::exception& ex)
       {
         util::throw_parse_error("PowerMeter::send_frequency", ex);
       }
+    }
+    else
+    {
+      util::throw_parse_error("PowerMeter::send_frequency", 
+        std::string("Unexpected response prefix. Expected '*' or '?', got: [") + 
+        util::escape(rr) + "]");
     }
   }
 
@@ -1155,10 +1421,24 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_average : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // drop the first byte
+// Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::send_average", 
+        std::string("Empty response to SG command"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::send_average", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
+    // Extract numeric value after the success marker
     try
     {
-      value = std::stod(rr.substr(1));
+      value = std::stod(util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::send_average"));
     }
     catch (const std::exception& ex)
     {
@@ -1191,10 +1471,24 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_units : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // drop the first byte
+    // Validate response format: expect "*X" where X is the unit character
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::send_units", 
+        std::string("Empty response to SI command"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::send_units", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
+    // Extract the unit character
     try
     {
-      unit = rr.at(1);
+      unit = util::safe_at(rr, 1, "PowerMeter::send_units");
     }
     catch (const std::exception& ex)
     {
@@ -1220,10 +1514,24 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::send_power : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // drop the first byte
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::send_power", 
+        std::string("Empty response to SP command"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::send_power", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
+    // Extract numeric value after the success marker
     try
     {
-      value = std::stod(rr.substr(1));
+      value = std::stod(util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::send_power"));
     }
     catch (const std::exception& ex)
     {
@@ -1241,12 +1549,26 @@ namespace device {
       throw serial::IOException(__FILE__, __LINE__, "Failed to query max");
     }
 
-    // drop the first byte
-    rr = rr.substr(1);
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::send_max", 
+        std::string("Empty response to SX command"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::send_max", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
+    // drop the first byte (success marker)
+    rr = util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::send_max");
 #ifdef DEBUG
     std::cout << "PowerMeter::send_max : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // -- check if we are in auto mode
+    // Check if we are in auto mode
     if (rr == "AUTO")
     {
       value = 0.0;
@@ -1300,6 +1622,14 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::user_threshold : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
+
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::user_threshold", 
+        std::string("Empty response to UT command"));
+    }
+
     // -- undocumented difference
     // out of range is answered with ?OUT OF RANGE
     if (rr.at(0) == '?')
@@ -1318,8 +1648,8 @@ namespace device {
       if (rr.at(0) == '*')
       {
         // -- if it didn't fail, just continue
-        // first strip the return byte
-        rr = rr.substr(1);
+        // first strip the success marker
+        rr = util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::user_threshold");
         // now tokenize the answer
         std::vector<std::string> tokens;
         util::tokenize_string(rr, tokens, " ");
@@ -1389,8 +1719,23 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::query_user_threshold : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
+
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::query_user_threshold", 
+        std::string("Empty response to UT query"));
+    }
+
+    // Validate response starts with success marker
+    if (rr.at(0) != '*')
+    {
+      util::throw_parse_error("PowerMeter::query_user_threshold", 
+        std::string("Expected '*' prefix, got: [") + util::escape(rr) + "]");
+    }
+
     // first strip the return byte
-    rr = rr.substr(1);
+    rr = util::safe_substr(rr, 1, rr.size() - 1, "PowerMeter::query_user_threshold");
     // now tokenize the answer
     std::vector<std::string> tokens;
     util::tokenize_string(rr, tokens, " ");
@@ -1404,6 +1749,9 @@ namespace device {
 
     try
     {
+      // Validate token count (expect: current, min, max)
+      util::validate_token_count(tokens, 3, "PowerMeter::query_user_threshold", rr);
+      
       const uint16_t parsed_current = std::stoul(tokens.at(0)) & 0xFFFF;
       const uint16_t parsed_min = std::stoul(tokens.at(1)) & 0xFFFF;
       const uint16_t parsed_max = std::stoul(tokens.at(2)) & 0xFFFF;
@@ -1449,9 +1797,15 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::wavelength_index : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // first strip the return byte
-    success=(rr.at(0)=='*')?true:false;
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::wavelength_index", 
+        std::string("Empty response to WI command"));
+    }
 
+    // Check if command succeeded (starts with '*') or failed (anything else)
+    success = (rr.at(0) == '*');
   }
 
   void PowerMeter::wavelength(const uint16_t wl, bool &success)
@@ -1467,8 +1821,15 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::wavelength : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // first strip the return byte
-    success=(rr.at(0)=='*')?true:false;
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::wavelength", 
+        std::string("Empty response to WL command"));
+    }
+
+    // Check if command succeeded (starts with '*') or failed (anything else)
+    success = (rr.at(0) == '*');
   }
 
   void PowerMeter::write_range(const int16_t range, bool &success)
@@ -1476,7 +1837,6 @@ namespace device {
     std::ostringstream cmd;
     cmd << "WN " << range;
     std::string rr;
-    send_cmd(cmd.str(),rr);
     bool st = send_cmd(cmd.str(), rr);
     if (!st)
     {
@@ -1485,8 +1845,15 @@ namespace device {
 #ifdef DEBUG
     std::cout << "PowerMeter::write_range : Got response [" << util::escape(rr.c_str()) << "]" << std::endl;
 #endif
-    // first strip the return byte
-    success=(rr.at(0)=='*')?true:false;
+    // Validate response
+    if (rr.empty())
+    {
+      util::throw_parse_error("PowerMeter::write_range", 
+        std::string("Empty response to WN command"));
+    }
+
+    // Check if command succeeded (starts with '*') or failed (anything else)
+    success = (rr.at(0) == '*');
   }
 
 

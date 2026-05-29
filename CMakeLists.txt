@@ -106,6 +106,10 @@ target_link_libraries(test_laser PUBLIC LaserControl)
 add_executable(test_pm EXCLUDE_FROM_ALL examples/test_powermeter.cc)
 target_link_libraries(test_pm PUBLIC LaserControl)
 
+add_executable(resilience_demo EXCLUDE_FROM_ALL examples/resilience_demo.cc)
+target_compile_features(resilience_demo PUBLIC cxx_std_11)
+target_link_libraries(resilience_demo PUBLIC LaserControl)
+
 add_subdirectory(apps)
 
 if(BUILD_TESTING)

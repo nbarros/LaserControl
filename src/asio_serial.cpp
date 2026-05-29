@@ -137,8 +137,32 @@ public:
     {
       return;
     }
-    boost::system::error_code ec;
-    serial_port_.close(ec);
+
+    auto do_close = [this]()
+    {
+      boost::system::error_code ec;
+      tx_timer_.cancel(ec);
+      serial_port_.cancel(ec);
+      serial_port_.close(ec);
+      tx_queue_.clear();
+      active_tx_.reset();
+      tx_in_progress_ = false;
+    };
+
+    if (std::this_thread::get_id() == io_thread_.get_id())
+    {
+      do_close();
+      return;
+    }
+
+    std::promise<void> closed;
+    std::future<void> wait_closed = closed.get_future();
+    boost::asio::post(io_, [do_close, &closed]() mutable
+    {
+      do_close();
+      closed.set_value();
+    });
+    wait_closed.wait();
   }
 
   bool isOpen() const { return serial_port_.is_open(); }

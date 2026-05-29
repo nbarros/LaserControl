@@ -58,6 +58,11 @@ public:
   {
     m_stop.store(true);
 
+    if (m_thread.joinable())
+    {
+      m_thread.join();
+    }
+
     if (m_master_fd >= 0)
     {
       ::close(m_master_fd);
@@ -67,11 +72,6 @@ public:
     {
       ::close(m_slave_fd);
       m_slave_fd = -1;
-    }
-
-    if (m_thread.joinable())
-    {
-      m_thread.join();
     }
   }
 
@@ -91,6 +91,20 @@ public:
       }
     }
     return false;
+  }
+
+  size_t command_count(const std::string& cmd) const
+  {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    size_t count = 0;
+    for (const auto& entry : m_commands)
+    {
+      if (entry == cmd)
+      {
+        ++count;
+      }
+    }
+    return count;
   }
 
 private:
@@ -156,6 +170,122 @@ private:
 
   mutable std::mutex m_mutex;
   std::vector<std::string> m_commands;
+};
+
+class RawDeviceHarness : public device::Device
+{
+public:
+  RawDeviceHarness(const char* port,
+                   uint32_t baud_rate,
+                   const std::string& request_suffix,
+                   const std::string& response_suffix,
+                   const std::string& probe_cmd)
+    : device::Device(port, baud_rate)
+  {
+    m_request_suffix = request_suffix;
+    m_response_suffix = response_suffix;
+
+    m_serial.set_port(m_comport);
+    m_serial.set_baudrate(m_baud);
+    m_serial.set_bytesize(serial::eightbits);
+    m_serial.set_parity(serial::parity_none);
+    m_serial.set_stopbits(serial::stopbits_one);
+    serial::Timeout to = serial::Timeout::simpleTimeout(m_timeout_ms);
+    m_serial.set_timeout(to);
+    m_serial.open();
+
+    if (!m_serial.is_open())
+    {
+      throw serial::PortNotOpenedException("RawDeviceHarness open");
+    }
+
+    const bool online = probe_connection(probe_cmd, 1, 10);
+    if (!online)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "RawDeviceHarness probe failed");
+    }
+  }
+
+  bool exchange_public(const std::string& cmd, std::string& response)
+  {
+    return exchange_cmd(cmd, response);
+  }
+};
+
+class LaserTestHarness : public device::Device
+{
+public:
+  LaserTestHarness(const char* port,
+                   uint32_t baud_rate,
+                   const std::string& probe_cmd)
+    : device::Device(port, baud_rate)
+  {
+    m_request_suffix = "\r";
+    m_response_suffix = "\r";
+
+    m_serial.set_port(m_comport);
+    m_serial.set_baudrate(m_baud);
+    m_serial.set_bytesize(serial::eightbits);
+    m_serial.set_parity(serial::parity_none);
+    m_serial.set_stopbits(serial::stopbits_one);
+    serial::Timeout to = serial::Timeout::simpleTimeout(m_timeout_ms);
+    m_serial.set_timeout(to);
+    m_serial.open();
+
+    if (!m_serial.is_open())
+    {
+      throw serial::PortNotOpenedException("LaserTestHarness open");
+    }
+
+    const bool online = probe_connection(probe_cmd, 1, 10);
+    if (!online)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "LaserTestHarness probe failed");
+    }
+  }
+
+  bool exchange_public(const std::string& cmd, std::string& response)
+  {
+    return exchange_cmd(cmd, response);
+  }
+};
+
+class PowerMeterTestHarness : public device::Device
+{
+public:
+  PowerMeterTestHarness(const char* port,
+                        uint32_t baud_rate,
+                        const std::string& probe_cmd)
+    : device::Device(port, baud_rate)
+  {
+    m_request_suffix = "\r\n";
+    m_response_suffix = "\r\n";
+
+    m_serial.set_port(m_comport);
+    m_serial.set_baudrate(m_baud);
+    m_serial.set_bytesize(serial::eightbits);
+    m_serial.set_parity(serial::parity_none);
+    m_serial.set_stopbits(serial::stopbits_one);
+    serial::Timeout to = serial::Timeout::simpleTimeout(m_timeout_ms);
+    m_serial.set_timeout(to);
+    m_serial.open();
+
+    if (!m_serial.is_open())
+    {
+      throw serial::PortNotOpenedException("PowerMeterTestHarness open");
+    }
+
+    const bool online = probe_connection(probe_cmd, 1, 10);
+    if (!online)
+    {
+      throw serial::IOException(__FILE__, __LINE__, "PowerMeterTestHarness probe failed");
+    }
+  }
+
+  bool exchange_public(const std::string& cmd, std::string& response)
+  {
+    return exchange_cmd(cmd, response);
+  }
 };
 
 void test_laser_protocols()
@@ -366,6 +496,466 @@ void test_attenuator_protocols()
   expect_true(got_range_error, "Attenuator::set_transmission should throw for invalid range");
 }
 
+void test_reconnect_behavior_various_devices()
+{
+  std::atomic<bool> laser_drop(false);
+  std::atomic<bool> att_drop(false);
+  std::atomic<bool> pm_drop(false);
+
+  PtyDeviceEmulator laser_emulator(
+    "\r",
+    [&laser_drop](const std::string& cmd) -> std::string
+    {
+      if (laser_drop.load())
+      {
+        return "";
+      }
+      if (cmd == "SE")
+      {
+        return "SE\r00\r";
+      }
+      if (cmd == "SC")
+      {
+        return "SC\r000000001\r";
+      }
+      return cmd + "\r";
+    });
+
+  PtyDeviceEmulator att_emulator(
+    "\r",
+    [&att_drop](const std::string& cmd) -> std::string
+    {
+      if (att_drop.load())
+      {
+        return "";
+      }
+      if (cmd == "pc")
+      {
+        return "pc1;0;0;0;59000;114;36;114;2;1;0;0;0;0;0;0;1;1;0;0;0;0;0;0;\n\r";
+      }
+      if (cmd == "o")
+      {
+        return "o0;4000;\n\r";
+      }
+      if (cmd == "p")
+      {
+        return "ppc_dump;\n\r";
+      }
+      if (cmd == "n")
+      {
+        return "nSN0001\n\r";
+      }
+      return cmd + "\n\r";
+    });
+
+  PtyDeviceEmulator pm_emulator(
+    "\r\n",
+    [&pm_drop](const std::string& cmd) -> std::string
+    {
+      if (pm_drop.load())
+      {
+        return "";
+      }
+      if (cmd == "$II")
+      {
+        return "* VEGA 12345 Meter\r\n";
+      }
+      if (cmd == "$SP")
+      {
+        return "*1.23\r\n";
+      }
+      return "*\r\n";
+    });
+
+  device::Laser laser(laser_emulator.slave_path().c_str(), 9600);
+  device::Attenuator att(att_emulator.slave_path().c_str(), 38400);
+  device::PowerMeter pm(pm_emulator.slave_path().c_str(), 9600);
+
+  // Unexpected loss for Attenuator: fail several exchange_cmd calls to mark offline, then recover.
+  att_drop.store(true);
+  for (int i = 0; i < 3; ++i)
+  {
+    bool failed = false;
+    try
+    {
+      (void)att.get_status_raw();
+    }
+    catch (const std::exception&)
+    {
+      failed = true;
+    }
+    expect_true(failed, "Attenuator should fail during simulated connection loss");
+  }
+  att_drop.store(false);
+  const std::string att_status = att.get_status_raw();
+  expect_true(att_status == "pc_dump;", "Attenuator should auto-reconnect after unexpected loss");
+
+  // Unexpected loss for PowerMeter: same pattern through send_cmd/exchange_cmd path.
+  pm_drop.store(true);
+  for (int i = 0; i < 3; ++i)
+  {
+    bool failed = false;
+    try
+    {
+      std::string id;
+      std::string sn;
+      std::string name;
+      pm.inst_info(id, sn, name);
+    }
+    catch (const std::exception&)
+    {
+      failed = true;
+    }
+    expect_true(failed, "PowerMeter should fail during simulated connection loss");
+  }
+  pm_drop.store(false);
+  {
+    std::string id;
+    std::string sn;
+    std::string name;
+    pm.inst_info(id, sn, name);
+    expect_true(id == "VEGA", "PowerMeter should auto-reconnect after unexpected loss");
+  }
+
+  // Explicit close should disable implicit reconnect for all device classes.
+  laser.close();
+  bool laser_failed = false;
+  try
+  {
+    laser.set_repetition_rate(10.0f);
+  }
+  catch (const std::exception&)
+  {
+    laser_failed = true;
+  }
+  expect_true(laser_failed, "Laser should not auto-reconnect after explicit close()");
+
+  att.close();
+  bool att_failed_after_close = false;
+  try
+  {
+    (void)att.get_status_raw();
+  }
+  catch (const std::exception&)
+  {
+    att_failed_after_close = true;
+  }
+  expect_true(att_failed_after_close, "Attenuator should not auto-reconnect after explicit close()");
+
+  pm.close();
+  bool pm_failed_after_close = false;
+  try
+  {
+    std::string id;
+    std::string sn;
+    std::string name;
+    pm.inst_info(id, sn, name);
+  }
+  catch (const std::exception&)
+  {
+    pm_failed_after_close = true;
+  }
+  expect_true(pm_failed_after_close, "PowerMeter should not auto-reconnect after explicit close()");
+}
+
+void test_reconnect_threshold_transition_behavior()
+{
+  /*
+   * Purpose
+   * -------
+   * This test locks down the failure-threshold transition semantics implemented
+   * in Device:
+   *   - Consecutive failures < threshold must NOT flip the device offline.
+   *   - Once failures reach threshold, the device is marked offline and the next
+   *     operation must go through the auto-recovery probe path before command IO.
+   *
+   * Why this matters
+   * ----------------
+   * The reconnect logic must be conservative. Recovering too early increases
+   * unnecessary reconnect churn, while recovering too late leaves the device
+   * unusable longer than needed. This test verifies both sides of that boundary.
+   *
+   * Validation strategy
+   * -------------------
+   * We intentionally drive failures using emulator drop flags and then compare
+   * command counters:
+   *   - We send a normal command for 2 failed attempts (threshold-1).
+   *     After restoring the link, the next normal command should succeed WITHOUT
+   *     a probe command.
+   *   - We then repeat with 3 failed attempts (threshold).
+   *     After restoring the link, the next normal command should succeed ONLY
+   *     after at least one probe command is issued.
+   *
+   * Device coverage in this test
+   * ----------------------------
+   * - Laser: probe command "SE" (security query), normal command "SC" (shot count)
+   * - Attenuator: probe command "pc" (config), normal command "o" (position)
+   * - PowerMeter: probe command "$II" (instrument info), normal command "$SP" (power query)
+   * - RawDeviceHarness: thin test wrapper over Device for deterministic,
+   *   direct threshold transition checks (no device-specific retry wrappers)
+   */
+
+  std::atomic<bool> laser_drop(false);
+  std::atomic<bool> att_drop(false);
+  std::atomic<bool> pm_drop(false);
+  std::atomic<bool> raw_drop(false);
+
+  PtyDeviceEmulator laser_emulator(
+    "\r",
+    [&laser_drop](const std::string& cmd) -> std::string
+    {
+      if (laser_drop.load())
+      {
+        return "";
+      }
+      if (cmd == "SE")
+      {
+        return "00\r";
+      }
+      if (cmd == "DATA")
+      {
+        return "OK\r";
+      }
+      return "\r";
+    });
+
+  PtyDeviceEmulator att_emulator(
+    "\r",
+    [&att_drop](const std::string& cmd) -> std::string
+    {
+      if (att_drop.load())
+      {
+        return "";
+      }
+      if (cmd == "pc")
+      {
+        return "pc1;0;0;0;59000;114;36;114;2;1;0;0;0;0;0;0;1;1;0;0;0;0;0;0;\n\r";
+      }
+      if (cmd == "o")
+      {
+        return "o0;4000;\n\r";
+      }
+      return cmd + "\n\r";
+    });
+
+  PtyDeviceEmulator pm_emulator(
+    "\r\n",
+    [&pm_drop](const std::string& cmd) -> std::string
+    {
+      if (pm_drop.load())
+      {
+        return "";
+      }
+      if (cmd == "$II")
+      {
+        return "*OK\r\n";
+      }
+      if (cmd == "$DATA")
+      {
+        return "*OK\r\n";
+      }
+      return "*OK\r\n";
+    });
+
+  PtyDeviceEmulator raw_emulator(
+    "\n",
+    [&raw_drop](const std::string& cmd) -> std::string
+    {
+      if (raw_drop.load())
+      {
+        return "";
+      }
+      if (cmd == "PING")
+      {
+        return "OK\n";
+      }
+      if (cmd == "DATA")
+      {
+        return "VALUE\n";
+      }
+      return "UNKNOWN\n";
+    });
+
+  LaserTestHarness laser(laser_emulator.slave_path().c_str(), 9600, "SE");
+  device::Attenuator att(att_emulator.slave_path().c_str(), 38400);
+  PowerMeterTestHarness pm(pm_emulator.slave_path().c_str(), 9600, "$II");
+  RawDeviceHarness raw(raw_emulator.slave_path().c_str(), 9600, "\n", "\n", "PING");
+
+  // --- Laser: threshold-1 path should NOT trigger probe on next success.
+  const size_t laser_se_before_subthreshold = laser_emulator.command_count("SE");
+  laser_drop.store(true);
+  for (int i = 0; i < 2; ++i)
+  {
+    std::string response;
+    const bool ok = laser.exchange_public("DATA", response);
+    expect_true(!ok, "Laser threshold-1 setup should fail while link is dropped");
+  }
+  laser_drop.store(false);
+  {
+    std::string response;
+    const bool ok = laser.exchange_public("DATA", response);
+    expect_true(ok && response == "OK", "Laser should recover normal command flow after threshold-1 failures");
+  }
+  const size_t laser_se_after_subthreshold = laser_emulator.command_count("SE");
+  expect_true(laser_se_after_subthreshold == laser_se_before_subthreshold,
+              "Laser should not issue probe command after threshold-1 failures");
+
+  // --- Laser: threshold path SHOULD trigger probe on next success.
+  const size_t laser_se_before_threshold = laser_emulator.command_count("SE");
+  laser_drop.store(true);
+  for (int i = 0; i < 3; ++i)
+  {
+    std::string response;
+    const bool ok = laser.exchange_public("DATA", response);
+    expect_true(!ok, "Laser threshold setup should fail while link is dropped");
+  }
+  laser_drop.store(false);
+  {
+    std::string response;
+    const bool ok = laser.exchange_public("DATA", response);
+    expect_true(ok && response == "OK", "Laser should recover after threshold-triggered offline transition");
+  }
+  const size_t laser_se_after_threshold = laser_emulator.command_count("SE");
+  expect_true(laser_se_after_threshold > laser_se_before_threshold,
+              "Laser should issue at least one probe command after threshold is reached");
+
+  // --- Attenuator: threshold-1 path should NOT trigger probe on next success.
+  const size_t att_pc_before_subthreshold = att_emulator.command_count("pc");
+  att_drop.store(true);
+  for (int i = 0; i < 2; ++i)
+  {
+    bool failed = false;
+    try
+    {
+      int32_t pos = 0;
+      uint16_t st = 0;
+      att.get_position(pos, st, false);
+    }
+    catch (const std::exception&)
+    {
+      failed = true;
+    }
+    expect_true(failed, "Attenuator threshold-1 setup should fail while link is dropped");
+  }
+  att_drop.store(false);
+  {
+    int32_t pos = 0;
+    uint16_t st = 99;
+    att.get_position(pos, st, false);
+    expect_true(pos == 4000 && st == 0, "Attenuator should recover normal command flow after threshold-1 failures");
+  }
+  const size_t att_pc_after_subthreshold = att_emulator.command_count("pc");
+  expect_true(att_pc_after_subthreshold == att_pc_before_subthreshold,
+              "Attenuator should not issue probe command after threshold-1 failures");
+
+  // --- Attenuator: threshold path SHOULD trigger probe on next success.
+  const size_t att_pc_before_threshold = att_emulator.command_count("pc");
+  att_drop.store(true);
+  for (int i = 0; i < 3; ++i)
+  {
+    bool failed = false;
+    try
+    {
+      int32_t pos = 0;
+      uint16_t st = 0;
+      att.get_position(pos, st, false);
+    }
+    catch (const std::exception&)
+    {
+      failed = true;
+    }
+    expect_true(failed, "Attenuator threshold setup should fail while link is dropped");
+  }
+  att_drop.store(false);
+  {
+    int32_t pos = 0;
+    uint16_t st = 99;
+    att.get_position(pos, st, false);
+    expect_true(pos == 4000 && st == 0, "Attenuator should recover after threshold-triggered offline transition");
+  }
+  const size_t att_pc_after_threshold = att_emulator.command_count("pc");
+  expect_true(att_pc_after_threshold > att_pc_before_threshold,
+              "Attenuator should issue at least one probe command after threshold is reached");
+
+  // --- PowerMeter: threshold-1 path should NOT trigger probe on next success.
+  const size_t pm_ii_before_subthreshold = pm_emulator.command_count("$II");
+  pm_drop.store(true);
+  for (int i = 0; i < 2; ++i)
+  {
+    std::string response;
+    const bool ok = pm.exchange_public("$DATA", response);
+    expect_true(!ok, "PowerMeter threshold-1 setup should fail while link is dropped");
+  }
+  pm_drop.store(false);
+  {
+    std::string response;
+    const bool ok = pm.exchange_public("$DATA", response);
+    expect_true(ok && response == "*OK", "PowerMeter should recover normal command flow after threshold-1 failures");
+  }
+  const size_t pm_ii_after_subthreshold = pm_emulator.command_count("$II");
+  expect_true(pm_ii_after_subthreshold == pm_ii_before_subthreshold,
+              "PowerMeter should not issue probe command after threshold-1 failures");
+
+  // --- PowerMeter: threshold path SHOULD trigger probe on next success.
+  const size_t pm_ii_before_threshold = pm_emulator.command_count("$II");
+  pm_drop.store(true);
+  for (int i = 0; i < 3; ++i)
+  {
+    std::string response;
+    const bool ok = pm.exchange_public("$DATA", response);
+    expect_true(!ok, "PowerMeter threshold setup should fail while link is dropped");
+  }
+  pm_drop.store(false);
+  {
+    std::string response;
+    const bool ok = pm.exchange_public("$DATA", response);
+    expect_true(ok && response == "*OK", "PowerMeter should recover after threshold-triggered offline transition");
+  }
+  const size_t pm_ii_after_threshold = pm_emulator.command_count("$II");
+  expect_true(pm_ii_after_threshold > pm_ii_before_threshold,
+              "PowerMeter should issue at least one probe command after threshold is reached");
+
+  // --- Raw Device: threshold-1 path should NOT trigger probe on next success.
+  const size_t raw_probe_before_subthreshold = raw_emulator.command_count("PING");
+  raw_drop.store(true);
+  for (int i = 0; i < 2; ++i)
+  {
+    std::string response;
+    const bool ok = raw.exchange_public("DATA", response);
+    expect_true(!ok, "Raw device threshold-1 setup should fail while link is dropped");
+  }
+  raw_drop.store(false);
+  {
+    std::string response;
+    const bool ok = raw.exchange_public("DATA", response);
+    expect_true(ok && response == "VALUE",
+                "Raw device should recover normal command flow after threshold-1 failures");
+  }
+  const size_t raw_probe_after_subthreshold = raw_emulator.command_count("PING");
+  expect_true(raw_probe_after_subthreshold == raw_probe_before_subthreshold,
+              "Raw device should not issue probe command after threshold-1 failures");
+
+  // --- Raw Device: threshold path SHOULD trigger probe on next success.
+  const size_t raw_probe_before_threshold = raw_emulator.command_count("PING");
+  raw_drop.store(true);
+  for (int i = 0; i < 3; ++i)
+  {
+    std::string response;
+    const bool ok = raw.exchange_public("DATA", response);
+    expect_true(!ok, "Raw device threshold setup should fail while link is dropped");
+  }
+  raw_drop.store(false);
+  {
+    std::string response;
+    const bool ok = raw.exchange_public("DATA", response);
+    expect_true(ok && response == "VALUE",
+                "Raw device should recover after threshold-triggered offline transition");
+  }
+  const size_t raw_probe_after_threshold = raw_emulator.command_count("PING");
+  expect_true(raw_probe_after_threshold > raw_probe_before_threshold,
+              "Raw device should issue at least one probe command after threshold is reached");
+}
+
 }
 
 int main()
@@ -375,6 +965,8 @@ int main()
     test_laser_protocols();
     test_powermeter_protocols();
     test_attenuator_protocols();
+    test_reconnect_behavior_various_devices();
+    test_reconnect_threshold_transition_behavior();
 
     std::cout << "All LaserControl device protocol tests passed" << std::endl;
     return 0;

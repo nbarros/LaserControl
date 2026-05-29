@@ -247,6 +247,10 @@ namespace device
   void Device::reset_connection()
   {
     std::lock_guard<std::recursive_mutex> lock(m_io_mutex);
+    if (m_user_requested_close)
+    {
+      return;
+    }
     if (m_serial.is_open()) {
       m_serial.close();
     }
